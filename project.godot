@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="voxel-test"
+run/main_scene="uid://ca5py7ui7754t"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
