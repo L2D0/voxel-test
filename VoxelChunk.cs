@@ -20,6 +20,16 @@ public partial class VoxelChunk : Node3D
     {
         SetupNoise();
         GenerateDensity();
+        _meshInstance = new MeshInstance3D
+        {
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.45f, 0.6f, 0.35f) },
+        };
+        AddChild(_meshInstance);
+
+        var body = new StaticBody3D();
+        _collisionShape = new CollisionShape3D();
+        body.AddChild(_collisionShape);
+        AddChild(body);
         BuildMesh();
         if (ShowDebugPoints) BuildDebugView();
     }
@@ -140,7 +150,12 @@ public partial class VoxelChunk : Node3D
                     }
                 }
 
-        if (indices.Count == 0) return;
+        if (indices.Count == 0)
+        {
+            _meshInstance.Mesh = null;
+            _collisionShape.Shape = null;
+            return;
+        }
 
         var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
@@ -151,21 +166,40 @@ public partial class VoxelChunk : Node3D
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
 
-        AddChild(new MeshInstance3D
-        {
-            Mesh = mesh,
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.45f, 0.6f, 0.35f) },
-        });
-
-        var body = new StaticBody3D();
-        body.AddChild(new CollisionShape3D { Shape = mesh.CreateTrimeshShape() });
-        AddChild(body);
+        _meshInstance.Mesh = mesh;
+        _collisionShape.Shape = mesh.CreateTrimeshShape();
     }
 
     private static void AddQuad(List<int> indices, int a, int b, int c, int d)
     {
         indices.Add(a); indices.Add(b); indices.Add(c);
         indices.Add(a); indices.Add(c); indices.Add(d);
+    }
+
+    public void Carve(Vector3 worldPoint, float radius) => ApplySphere(worldPoint, radius, false);
+    public void Fill(Vector3 worldPoint, float radius) => ApplySphere(worldPoint, radius, true);
+
+    private void ApplySphere(Vector3 worldPoint, float radius, bool fill)
+    {
+        Vector3 center = worldPoint - GlobalPosition;
+        int minX = Mathf.Max(0, Mathf.FloorToInt(center.X - radius - 1));
+        int minY = Mathf.Max(0, Mathf.FloorToInt(center.Y - radius - 1));
+        int minZ = Mathf.Max(0, Mathf.FloorToInt(center.Z - radius - 1));
+        int maxX = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.X + radius + 1));
+        int maxY = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.Y + radius + 1));
+        int maxZ = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.Z + radius + 1));
+
+        for (int z = minZ; z <= maxZ; z++)
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
+                {
+                    float dist = new Vector3(x, y, z).DistanceTo(center);
+                    int i = Index(x, y, z);
+                    if (fill) _density[i] = Mathf.Max(_density[i], radius - dist);
+                    else _density[i] = Mathf.Min(_density[i], dist - radius);
+                }
+
+        BuildMesh();
     }
 
     private void BuildDebugView()
@@ -192,4 +226,7 @@ public partial class VoxelChunk : Node3D
 
         AddChild(new MultiMeshInstance3D { Multimesh = multimesh });
     }
+
+    private MeshInstance3D _meshInstance;
+    private CollisionShape3D _collisionShape;
 }

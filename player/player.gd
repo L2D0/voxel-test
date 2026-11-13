@@ -37,6 +37,9 @@ func _ready():
 
 func _unhandled_input(event):
 	
+	if event.is_action_pressed("build"):
+		build_terrain()
+		
 	if event.is_action_pressed("cast"):
 		cast()
 	
@@ -109,3 +112,11 @@ func cast():
 	fireball.global_position = cast_point.global_position
 	fireball.direction = (target - fireball.global_position).normalized()
 	fireball.caster = self
+
+func build_terrain():
+	aim_ray.force_raycast_update()
+	if not aim_ray.is_colliding():
+		return
+	var target = aim_ray.get_collider().get_parent()
+	if target.has_method("Fill"):
+		target.Fill(aim_ray.get_collision_point(), 1.5)
