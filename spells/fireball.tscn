@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://5i4ed15e7m4c"]
+
+[ext_resource type="Script" uid="uid://copp3q2dojidl" path="res://spells/fireball.gd" id="1_mn32o"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_g4v7s"]
+radius = 0.2
+
+[sub_resource type="SphereMesh" id="SphereMesh_yf5fn"]
+radius = 0.2
+height = 0.4
+
+[node name="fireball" type="Area3D" unique_id=1501074035]
+script = ExtResource("1_mn32o")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=263367887]
+shape = SubResource("SphereShape3D_g4v7s")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1259752222]
+mesh = SubResource("SphereMesh_yf5fn")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=1549463890]
+light_color = Color(1, 0.47843137, 0.11372549, 1)
+omni_range = 4.0
