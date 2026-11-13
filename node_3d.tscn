@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://c0fau4keem5ka"]
+
+[ext_resource type="Script" uid="uid://bgmlojdkatjry" path="res://VoxelChunk.cs" id="1_a202f"]
+
+[node name="Node3D" type="Node3D" unique_id=191619101]
+
+[node name="Chunk" type="Node3D" parent="." unique_id=1071625931]
+script = ExtResource("1_a202f")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=792776063]
+transform = Transform3D(0.8660254, -0.38302222, 0.32139382, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 5, 1, 0)
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1326014072]
+transform = Transform3D(0.70710677, -0.29883623, 0.6408563, 0, 0.90630776, 0.42261827, -0.70710677, -0.29883623, 0.6408563, 50, 35, 50)
