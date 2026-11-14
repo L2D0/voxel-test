@@ -37,6 +37,9 @@ func _ready():
 
 func _unhandled_input(event):
 	
+	if GameState.menu_open:
+		return
+	
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
@@ -58,14 +61,16 @@ func _unhandled_input(event):
 
 
 func _physics_process(delta):
-	is_aiming = Input.is_action_pressed("aim")
+	var can_act = not GameState.menu_open
+	is_aiming = can_act and Input.is_action_pressed("aim")
+
 	if not is_on_floor():
 		velocity += get_gravity() * delta
 
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+	if can_act and Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = JUMP_VELOCITY
 
-	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back") if can_act else Vector2.ZERO
 	var direction = Vector3(input_dir.x, 0, input_dir.y).rotated(Vector3.UP, pivot.rotation.y)
 	var speed = SPEED * AIM_SPEED_MULT if is_aiming else SPEED
 	velocity.x = direction.x * speed

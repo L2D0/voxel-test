@@ -22,12 +22,12 @@ func _notification(what):
 
 func open():
 	visible = true
-	get_tree().paused = true
+	GameState.menu_open = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func close():
 	visible = false
-	get_tree().paused = false
+	GameState.menu_open = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _on_draw_distance_changed(value):
