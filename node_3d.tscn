@@ -1,15 +1,15 @@
 [gd_scene format=3 uid="uid://c0fau4keem5ka"]
 
-[ext_resource type="Script" uid="uid://bgmlojdkatjry" path="res://VoxelChunk.cs" id="1_a202f"]
+[ext_resource type="Script" uid="uid://bcvogm6gsh344" path="res://VoxelWorld.cs" id="2_a0tk4"]
 [ext_resource type="PackedScene" uid="uid://ckudr8chj1kgo" path="res://player/player.tscn" id="2_noarx"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
-
-[node name="Chunk" type="Node3D" parent="." unique_id=1071625931]
-script = ExtResource("1_a202f")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=792776063]
 transform = Transform3D(0.8660254, -0.38302222, 0.32139382, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 5, 1, 0)
 
 [node name="player" parent="." unique_id=1834096749 instance=ExtResource("2_noarx")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.610451, 54.9344, 17.099352)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 64, 70, 64)
+
+[node name="World" type="Node3D" parent="." unique_id=596004831]
+script = ExtResource("2_a0tk4")

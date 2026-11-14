@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://b114i84mis1f"]
+
+[node name="PauseMenu" type="CanvasLayer" unique_id=486059089]
+
+[node name="Dim" type="ColorRect" parent="." unique_id=614639345]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.49019608)
+
+[node name="Center" type="CenterContainer" parent="." unique_id=189978046]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center" unique_id=247638165]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel" unique_id=1702456641]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel/Margin" unique_id=656397368]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/VBox" unique_id=1475146001]
+layout_mode = 2
+text = "Paused"
+
+[node name="ResumeButton" type="Button" parent="Center/Panel/Margin/VBox" unique_id=1290103849]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Resume"
+
+[node name="DrawDistanceLabel" type="Label" parent="Center/Panel/Margin/VBox" unique_id=1803670148]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Draw Distance (chunks)"
+
+[node name="DrawDistanceSlider" type="HSlider" parent="Center/Panel/Margin/VBox" unique_id=1172998101]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+min_value = 2.0
+max_value = 12.0
+value = 2.0
+
+[node name="QuitButton" type="Button" parent="Center/Panel/Margin/VBox" unique_id=270069349]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Quit"

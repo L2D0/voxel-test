@@ -37,6 +37,11 @@ func _ready():
 
 func _unhandled_input(event):
 	
+	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		get_viewport().set_input_as_handled()
+		return
+	
 	if event.is_action_pressed("build"):
 		build_terrain()
 		
@@ -51,8 +56,6 @@ func _unhandled_input(event):
 		pivot.rotation.x -= event.relative.y * MOUSE_SENSITIVITY
 		pivot.rotation.x = clamp(pivot.rotation.x, deg_to_rad(-70), deg_to_rad(60))
 
-	if event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _physics_process(delta):
 	is_aiming = Input.is_action_pressed("aim")

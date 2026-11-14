@@ -4,22 +4,17 @@ using System.Collections.Generic;
 public partial class VoxelChunk : Node3D
 {
     public const int Size = 32;
-    public const int Samples = Size + 1;
+    public const int Samples = Size + 2;   // local coords -1 .. Size
+    public const int Cells = Size + 1;     // local cells -1 .. Size-1
 
-    [Export] public int Seed = 1337;
-    [Export] public float SurfaceHeight = 12f;
-    [Export] public float HeightAmplitude = 6f;
-    [Export] public float OverhangStrength = 8f;
-    [Export] public bool ShowDebugPoints = false;
+    public VoxelWorld World;
 
     private readonly float[] _density = new float[Samples * Samples * Samples];
-    private FastNoiseLite _heightNoise;
-    private FastNoiseLite _shapeNoise;
+    private MeshInstance3D _meshInstance;
+    private CollisionShape3D _collisionShape;
 
     public override void _Ready()
     {
-        SetupNoise();
-        GenerateDensity();
         _meshInstance = new MeshInstance3D
         {
             MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.45f, 0.6f, 0.35f) },
@@ -30,41 +25,55 @@ public partial class VoxelChunk : Node3D
         _collisionShape = new CollisionShape3D();
         body.AddChild(_collisionShape);
         AddChild(body);
+
+        GenerateDensity();
         BuildMesh();
-        if (ShowDebugPoints) BuildDebugView();
     }
 
-    private static int Index(int x, int y, int z) => x + Samples * (y + Samples * z);
-    private static int CellIndex(int x, int y, int z) => x + Size * (y + Size * z);
+    private static int Index(int x, int y, int z) => (x + 1) + Samples * ((y + 1) + Samples * (z + 1));
+    private static int CellIndex(int x, int y, int z) => (x + 1) + Cells * ((y + 1) + Cells * (z + 1));
     private static int CellIndex(Vector3I c) => CellIndex(c.X, c.Y, c.Z);
     private static Vector3 Corner(int i) => new Vector3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
 
-    public float GetDensity(int x, int y, int z) => _density[Index(x, y, z)];
-
-    private void SetupNoise()
-    {
-        _heightNoise = new FastNoiseLite { Seed = Seed, Frequency = 0.02f };
-        _shapeNoise = new FastNoiseLite { Seed = Seed + 1, Frequency = 0.05f };
-    }
+    private float GetDensity(int x, int y, int z) => _density[Index(x, y, z)];
 
     private void GenerateDensity()
     {
         Vector3 origin = GlobalPosition;
 
-        for (int z = 0; z < Samples; z++)
-            for (int y = 0; y < Samples; y++)
-                for (int x = 0; x < Samples; x++)
+        for (int z = -1; z <= Size; z++)
+            for (int y = -1; y <= Size; y++)
+                for (int x = -1; x <= Size; x++)
+                    _density[Index(x, y, z)] = World.SampleDensity(origin + new Vector3(x, y, z));
+    }
+
+    // Forwarded to the world so edits reach every chunk they touch
+    public void Carve(Vector3 worldPoint, float radius) => World.Carve(worldPoint, radius);
+    public void Fill(Vector3 worldPoint, float radius) => World.Fill(worldPoint, radius);
+
+    public void ApplySphere(Vector3 worldPoint, float radius, bool fill)
+    {
+        Vector3 center = worldPoint - GlobalPosition;
+        int minX = Mathf.Max(-1, Mathf.FloorToInt(center.X - radius - 1));
+        int minY = Mathf.Max(-1, Mathf.FloorToInt(center.Y - radius - 1));
+        int minZ = Mathf.Max(-1, Mathf.FloorToInt(center.Z - radius - 1));
+        int maxX = Mathf.Min(Size, Mathf.CeilToInt(center.X + radius + 1));
+        int maxY = Mathf.Min(Size, Mathf.CeilToInt(center.Y + radius + 1));
+        int maxZ = Mathf.Min(Size, Mathf.CeilToInt(center.Z + radius + 1));
+
+        if (minX > maxX || minY > maxY || minZ > maxZ) return;   // sphere doesn't touch this chunk
+
+        for (int z = minZ; z <= maxZ; z++)
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
                 {
-                    float wx = origin.X + x;
-                    float wy = origin.Y + y;
-                    float wz = origin.Z + z;
-
-                    float height = SurfaceHeight + _heightNoise.GetNoise2D(wx, wz) * HeightAmplitude;
-                    float density = height - wy;
-                    density += _shapeNoise.GetNoise3D(wx, wy, wz) * OverhangStrength;
-
-                    _density[Index(x, y, z)] = density;
+                    float dist = new Vector3(x, y, z).DistanceTo(center);
+                    int i = Index(x, y, z);
+                    if (fill) _density[i] = Mathf.Max(_density[i], radius - dist);
+                    else _density[i] = Mathf.Min(_density[i], dist - radius);
                 }
+
+        BuildMesh();
     }
 
     private void BuildMesh()
@@ -72,13 +81,13 @@ public partial class VoxelChunk : Node3D
         var vertices = new List<Vector3>();
         var normals = new List<Vector3>();
         var indices = new List<int>();
-        var cellVertex = new int[Size * Size * Size];
+        var cellVertex = new int[Cells * Cells * Cells];
         var d = new float[8];
 
-        // Pass 1: one vertex per cell the surface crosses
-        for (int z = 0; z < Size; z++)
-            for (int y = 0; y < Size; y++)
-                for (int x = 0; x < Size; x++)
+        // Pass 1: one vertex per cell the surface crosses (including the border cells)
+        for (int z = -1; z < Size; z++)
+            for (int y = -1; y < Size; y++)
+                for (int x = -1; x < Size; x++)
                 {
                     int solid = 0;
                     for (int i = 0; i < 8; i++)
@@ -117,10 +126,10 @@ public partial class VoxelChunk : Node3D
                     normals.Add(-gradient.Normalized());
                 }
 
-        // Pass 2: one quad per sample edge the surface crosses
-        for (int z = 0; z < Samples; z++)
-            for (int y = 0; y < Samples; y++)
-                for (int x = 0; x < Samples; x++)
+        // Pass 2: quads for the edges this chunk owns (starting sample in 0..Size-1)
+        for (int z = 0; z < Size; z++)
+            for (int y = 0; y < Size; y++)
+                for (int x = 0; x < Size; x++)
                 {
                     var p = new Vector3I(x, y, z);
                     bool solid0 = GetDensity(x, y, z) > 0;
@@ -129,7 +138,6 @@ public partial class VoxelChunk : Node3D
                     {
                         int u = (axis + 1) % 3;
                         int v = (axis + 2) % 3;
-                        if (p[axis] >= Size || p[u] < 1 || p[u] >= Size || p[v] < 1 || p[v] >= Size) continue;
 
                         Vector3I q = p;
                         q[axis] += 1;
@@ -175,58 +183,4 @@ public partial class VoxelChunk : Node3D
         indices.Add(a); indices.Add(b); indices.Add(c);
         indices.Add(a); indices.Add(c); indices.Add(d);
     }
-
-    public void Carve(Vector3 worldPoint, float radius) => ApplySphere(worldPoint, radius, false);
-    public void Fill(Vector3 worldPoint, float radius) => ApplySphere(worldPoint, radius, true);
-
-    private void ApplySphere(Vector3 worldPoint, float radius, bool fill)
-    {
-        Vector3 center = worldPoint - GlobalPosition;
-        int minX = Mathf.Max(0, Mathf.FloorToInt(center.X - radius - 1));
-        int minY = Mathf.Max(0, Mathf.FloorToInt(center.Y - radius - 1));
-        int minZ = Mathf.Max(0, Mathf.FloorToInt(center.Z - radius - 1));
-        int maxX = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.X + radius + 1));
-        int maxY = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.Y + radius + 1));
-        int maxZ = Mathf.Min(Samples - 1, Mathf.CeilToInt(center.Z + radius + 1));
-
-        for (int z = minZ; z <= maxZ; z++)
-            for (int y = minY; y <= maxY; y++)
-                for (int x = minX; x <= maxX; x++)
-                {
-                    float dist = new Vector3(x, y, z).DistanceTo(center);
-                    int i = Index(x, y, z);
-                    if (fill) _density[i] = Mathf.Max(_density[i], radius - dist);
-                    else _density[i] = Mathf.Min(_density[i], dist - radius);
-                }
-
-        BuildMesh();
-    }
-
-    private void BuildDebugView()
-    {
-        int solidCount = 0;
-        foreach (float d in _density)
-            if (d > 0) solidCount++;
-
-        var multimesh = new MultiMesh
-        {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-            Mesh = new BoxMesh { Size = Vector3.One * 0.3f },
-        };
-        multimesh.InstanceCount = solidCount;
-
-        int i = 0;
-        for (int z = 0; z < Samples; z++)
-            for (int y = 0; y < Samples; y++)
-                for (int x = 0; x < Samples; x++)
-                {
-                    if (GetDensity(x, y, z) > 0)
-                        multimesh.SetInstanceTransform(i++, new Transform3D(Basis.Identity, new Vector3(x, y, z)));
-                }
-
-        AddChild(new MultiMeshInstance3D { Multimesh = multimesh });
-    }
-
-    private MeshInstance3D _meshInstance;
-    private CollisionShape3D _collisionShape;
 }
