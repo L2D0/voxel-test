@@ -1,6 +1,14 @@
 using Godot;
 using System.Collections.Generic;
 
+public class MeshData
+{
+    public Vector3[] Vertices;
+    public Vector3[] Normals;
+    public Color[] Colors;
+    public int[] Indices;
+}
+
 public partial class VoxelChunk : Node3D
 {
     public const int Size = 32;
@@ -8,8 +16,12 @@ public partial class VoxelChunk : Node3D
     public const int Cells = Size + 1;     // local cells -1 .. Size-1
 
     public VoxelWorld World;
+    public Vector3I Coord;
+    public bool HasData { get; private set; }
+    public bool Modified { get; private set; }
+    public float[] DensityData => _density;
 
-    private readonly float[] _density = new float[Samples * Samples * Samples];
+    private float[] _density;
     private MeshInstance3D _meshInstance;
     private CollisionShape3D _collisionShape;
 
@@ -17,7 +29,7 @@ public partial class VoxelChunk : Node3D
     {
         _meshInstance = new MeshInstance3D
         {
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.45f, 0.6f, 0.35f) },
+            MaterialOverride = new StandardMaterial3D { VertexColorUseAsAlbedo = true },
         };
         AddChild(_meshInstance);
 
@@ -25,26 +37,15 @@ public partial class VoxelChunk : Node3D
         _collisionShape = new CollisionShape3D();
         body.AddChild(_collisionShape);
         AddChild(body);
-
-        GenerateDensity();
-        BuildMesh();
     }
 
-    private static int Index(int x, int y, int z) => (x + 1) + Samples * ((y + 1) + Samples * (z + 1));
-    private static int CellIndex(int x, int y, int z) => (x + 1) + Cells * ((y + 1) + Cells * (z + 1));
-    private static int CellIndex(Vector3I c) => CellIndex(c.X, c.Y, c.Z);
-    private static Vector3 Corner(int i) => new Vector3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
-
-    private float GetDensity(int x, int y, int z) => _density[Index(x, y, z)];
-
-    private void GenerateDensity()
+    // Called on the main thread when a background build finishes
+    public void ApplyBuild(float[] density, MeshData mesh, bool fromSave)
     {
-        Vector3 origin = GlobalPosition;
-
-        for (int z = -1; z <= Size; z++)
-            for (int y = -1; y <= Size; y++)
-                for (int x = -1; x <= Size; x++)
-                    _density[Index(x, y, z)] = World.SampleDensity(origin + new Vector3(x, y, z));
+        _density = density;
+        HasData = true;
+        Modified = fromSave;
+        ApplyMesh(mesh);
     }
 
     // Forwarded to the world so edits reach every chunk they touch
@@ -53,6 +54,8 @@ public partial class VoxelChunk : Node3D
 
     public void ApplySphere(Vector3 worldPoint, float radius, bool fill)
     {
+        if (!HasData) return;   // still generating
+
         Vector3 center = worldPoint - GlobalPosition;
         int minX = Mathf.Max(-1, Mathf.FloorToInt(center.X - radius - 1));
         int minY = Mathf.Max(-1, Mathf.FloorToInt(center.Y - radius - 1));
@@ -61,7 +64,7 @@ public partial class VoxelChunk : Node3D
         int maxY = Mathf.Min(Size, Mathf.CeilToInt(center.Y + radius + 1));
         int maxZ = Mathf.Min(Size, Mathf.CeilToInt(center.Z + radius + 1));
 
-        if (minX > maxX || minY > maxY || minZ > maxZ) return;   // sphere doesn't touch this chunk
+        if (minX > maxX || minY > maxY || minZ > maxZ) return;
 
         for (int z = minZ; z <= maxZ; z++)
             for (int y = minY; y <= maxY; y++)
@@ -73,13 +76,62 @@ public partial class VoxelChunk : Node3D
                     else _density[i] = Mathf.Min(_density[i], dist - radius);
                 }
 
-        BuildMesh();
+        Modified = true;
+        ApplyMesh(BuildMeshData(World, GlobalPosition, _density));
     }
 
-    private void BuildMesh()
+    private void ApplyMesh(MeshData m)
     {
+        if (m == null)
+        {
+            _meshInstance.Mesh = null;
+            _collisionShape.Shape = null;
+            return;
+        }
+
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = m.Vertices;
+        arrays[(int)Mesh.ArrayType.Normal] = m.Normals;
+        arrays[(int)Mesh.ArrayType.Color] = m.Colors;
+        arrays[(int)Mesh.ArrayType.Index] = m.Indices;
+
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+
+        _meshInstance.Mesh = mesh;
+        _collisionShape.Shape = mesh.CreateTrimeshShape();
+    }
+
+    // ---------- Thread-safe generation (no node access below this line) ----------
+
+    private static int Index(int x, int y, int z) => (x + 1) + Samples * ((y + 1) + Samples * (z + 1));
+    private static int CellIndex(int x, int y, int z) => (x + 1) + Cells * ((y + 1) + Cells * (z + 1));
+    private static int CellIndex(Vector3I c) => CellIndex(c.X, c.Y, c.Z);
+    private static Vector3 Corner(int i) => new Vector3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
+
+    public static float[] GenerateDensity(VoxelWorld world, Vector3 origin)
+    {
+        var density = new float[Samples * Samples * Samples];
+
+        for (int z = -1; z <= Size; z++)
+            for (int x = -1; x <= Size; x++)
+            {
+                BiomeSample biomes = world.SampleBiomes(origin.X + x, origin.Z + z);
+                for (int y = -1; y <= Size; y++)
+                    density[Index(x, y, z)] = world.Density(origin + new Vector3(x, y, z), biomes);
+            }
+
+        return density;
+    }
+
+    public static MeshData BuildMeshData(VoxelWorld world, Vector3 origin, float[] density)
+    {
+        float D(int x, int y, int z) => density[Index(x, y, z)];
+
         var vertices = new List<Vector3>();
         var normals = new List<Vector3>();
+        var colors = new List<Color>();
         var indices = new List<int>();
         var cellVertex = new int[Cells * Cells * Cells];
         var d = new float[8];
@@ -92,7 +144,7 @@ public partial class VoxelChunk : Node3D
                     int solid = 0;
                     for (int i = 0; i < 8; i++)
                     {
-                        d[i] = GetDensity(x + (i & 1), y + ((i >> 1) & 1), z + ((i >> 2) & 1));
+                        d[i] = D(x + (i & 1), y + ((i >> 1) & 1), z + ((i >> 2) & 1));
                         if (d[i] > 0) solid++;
                     }
 
@@ -117,7 +169,9 @@ public partial class VoxelChunk : Node3D
                         }
 
                     cellVertex[ci] = vertices.Count;
-                    vertices.Add(new Vector3(x, y, z) + sum / crossings);
+                    Vector3 vertexPos = new Vector3(x, y, z) + sum / crossings;
+                    vertices.Add(vertexPos);
+                    colors.Add(world.BiomeColor(origin + vertexPos));
 
                     Vector3 gradient = new Vector3(
                         (d[1] + d[3] + d[5] + d[7]) - (d[0] + d[2] + d[4] + d[6]),
@@ -132,7 +186,7 @@ public partial class VoxelChunk : Node3D
                 for (int x = 0; x < Size; x++)
                 {
                     var p = new Vector3I(x, y, z);
-                    bool solid0 = GetDensity(x, y, z) > 0;
+                    bool solid0 = D(x, y, z) > 0;
 
                     for (int axis = 0; axis < 3; axis++)
                     {
@@ -141,7 +195,7 @@ public partial class VoxelChunk : Node3D
 
                         Vector3I q = p;
                         q[axis] += 1;
-                        if (solid0 == (GetDensity(q.X, q.Y, q.Z) > 0)) continue;
+                        if (solid0 == (D(q.X, q.Y, q.Z) > 0)) continue;
 
                         Vector3I c0 = p, c1 = p, c2 = p, c3 = p;
                         c0[u] -= 1; c0[v] -= 1;
@@ -158,24 +212,15 @@ public partial class VoxelChunk : Node3D
                     }
                 }
 
-        if (indices.Count == 0)
+        if (indices.Count == 0) return null;
+
+        return new MeshData
         {
-            _meshInstance.Mesh = null;
-            _collisionShape.Shape = null;
-            return;
-        }
-
-        var arrays = new Godot.Collections.Array();
-        arrays.Resize((int)Mesh.ArrayType.Max);
-        arrays[(int)Mesh.ArrayType.Vertex] = vertices.ToArray();
-        arrays[(int)Mesh.ArrayType.Normal] = normals.ToArray();
-        arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
-
-        var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-
-        _meshInstance.Mesh = mesh;
-        _collisionShape.Shape = mesh.CreateTrimeshShape();
+            Vertices = vertices.ToArray(),
+            Normals = normals.ToArray(),
+            Colors = colors.ToArray(),
+            Indices = indices.ToArray(),
+        };
     }
 
     private static void AddQuad(List<int> indices, int a, int b, int c, int d)

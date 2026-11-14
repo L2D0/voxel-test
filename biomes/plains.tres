@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="BiomeSettings" format=3 uid="uid://b8mb2v53jf108"]
+
+[ext_resource type="Script" uid="uid://e1vnpj6ly1t4" path="res://BiomeSettings.cs" id="1_1cs7p"]
+
+[resource]
+script = ExtResource("1_1cs7p")
+BiomeName = "plains"
+HeightAmplitude = 4.0
+FeatureSize = 120.0
+Smoothness = 0.9
+metadata/_custom_type_script = "uid://e1vnpj6ly1t4"

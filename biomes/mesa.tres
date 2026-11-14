@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="BiomeSettings" format=3 uid="uid://cupo73ox5pt33"]
+
+[ext_resource type="Script" uid="uid://e1vnpj6ly1t4" path="res://BiomeSettings.cs" id="1_20r3t"]
+
+[resource]
+script = ExtResource("1_20r3t")
+BiomeName = "mesa"
+DebugColor = Color(0.74671954, 0.35539663, 0, 1)
+BaseHeight = 34.0
+HeightAmplitude = 32.0
+FeatureSize = 90.0
+Smoothness = 0.6
+Terracing = 1.0
+TerraceHeight = 16.0
+TerraceWallWidth = 0.12000000000000001
+Overhang = 2.5
+OverhangSize = 12.0
+VerticalStretch = 4.0
+metadata/_custom_type_script = "uid://e1vnpj6ly1t4"

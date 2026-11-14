@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="BiomeSettings" format=3 uid="uid://drdyp8c33quer"]
+
+[ext_resource type="Script" uid="uid://e1vnpj6ly1t4" path="res://BiomeSettings.cs" id="1_oetfo"]
+
+[resource]
+script = ExtResource("1_oetfo")
+BiomeName = "hills"
+DebugColor = Color(0.35370338, 0.62982273, 0.21324486, 1)
+HeightAmplitude = 14.0
+FeatureSize = 60.0
+Smoothness = 0.4
+Overhang = 2.0
+metadata/_custom_type_script = "uid://e1vnpj6ly1t4"
