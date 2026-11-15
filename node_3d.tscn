@@ -7,6 +7,7 @@
 [ext_resource type="Resource" uid="uid://b8mb2v53jf108" path="res://biomes/plains.tres" id="4_4arys"]
 [ext_resource type="Resource" uid="uid://drdyp8c33quer" path="res://biomes/hills.tres" id="6_tereu"]
 [ext_resource type="Resource" uid="uid://cupo73ox5pt33" path="res://biomes/mesa.tres" id="7_cdqbm"]
+[ext_resource type="PackedScene" uid="uid://bscbtgskk2873" path="res://combat/target_dummy.tscn" id="8_jsk3o"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
 
@@ -24,3 +25,6 @@ Biomes = Array[ExtResource("3_jsk3o")]([ExtResource("4_4arys"), ExtResource("6_t
 BiomeCellSize = 128.0
 
 [node name="PauseMenu" parent="." unique_id=486059089 instance=ExtResource("3_a0tk4")]
+
+[node name="TargetDummy" parent="." unique_id=1433057792 instance=ExtResource("8_jsk3o")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 35, 0)

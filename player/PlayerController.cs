@@ -38,11 +38,15 @@ public partial class PlayerController : CharacterBody3D
     private Marker3D _castPoint;
     private RayCast3D _aimRay;
     private Label _speedLabel;
+    private Label _healthLabel;
     private Node _gameState;
+    private Health _health;
     private PackedScene _fireballScene;
 
+    private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
     private float _coyoteTimer;
+    private float _launchTimer;
 
     public override void _Ready()
     {
@@ -51,15 +55,41 @@ public partial class PlayerController : CharacterBody3D
         _castPoint = GetNode<Marker3D>("Model/CastPoint");
         _aimRay = GetNode<RayCast3D>("CameraPivot/SpringArm3D/Camera3D/AimRay");
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
+        _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
         _gameState = GetNode("/root/GameState");
+        _health = GetNode<Health>("Health");
         _fireballScene = GD.Load<PackedScene>("res://spells/fireball.tscn");
 
         _aimRay.AddException(this);
+        _spawnPoint = GlobalPosition;
+
+        _health.Changed += (current, max) => UpdateHealthLabel();
+        _health.Died += OnDied;
+        UpdateHealthLabel();
     }
 
     public bool MenuOpen => _gameState.Get("menu_open").AsBool();
 
-    public void AddImpulse(Vector3 impulse) => Velocity += impulse;
+    public void AddImpulse(Vector3 impulse)
+    {
+        Velocity += impulse;
+        _launchTimer = 0.15f;   // ignore the ground briefly so friction can't eat the launch
+    }
+
+    // ---------- Health ----------
+
+    private void UpdateHealthLabel()
+    {
+        if (_healthLabel != null)
+            _healthLabel.Text = $"HP {_health.Current:0} / {_health.MaxHealth:0}";
+    }
+
+    private void OnDied(Node source)
+    {
+        GlobalPosition = _spawnPoint;
+        Velocity = Vector3.Zero;
+        _health.Reset();
+    }
 
     // ---------- Movement ----------
 
@@ -78,15 +108,17 @@ public partial class PlayerController : CharacterBody3D
         float maxSpeed = MaxGroundSpeed * (IsAiming ? AimSpeedMult : 1f);
         float wishSpeed = maxSpeed * inputStrength;
 
+        _launchTimer -= dt;
+        bool grounded = IsOnFloor() && _launchTimer <= 0f;
+
         // Jump buffer and coyote time
         _jumpBufferTimer -= dt;
         if (canAct && Input.IsActionJustPressed("jump")) _jumpBufferTimer = JumpBuffer;
-        if (IsOnFloor()) _coyoteTimer = CoyoteTime;
+        if (grounded) _coyoteTimer = CoyoteTime;
         else _coyoteTimer -= dt;
 
         Vector3 vel = Velocity;
         Vector3 horiz = new Vector3(vel.X, 0, vel.Z);
-        bool grounded = IsOnFloor();
 
         if (_jumpBufferTimer > 0f && _coyoteTimer > 0f)
         {
@@ -95,7 +127,8 @@ public partial class PlayerController : CharacterBody3D
             if (speed > maxSpeed)
                 horiz = horiz.Normalized() * (maxSpeed + (speed - maxSpeed) * HopSpeedRetention);
 
-            vel.Y = JumpVelocity;
+            // Adds to upward momentum (rising pillar, updrafts), ignores downward
+            vel.Y = Mathf.Max(vel.Y, 0f) + JumpVelocity;
             _jumpBufferTimer = 0f;
             _coyoteTimer = 0f;
             grounded = false;

@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://bscbtgskk2873"]
+
+[ext_resource type="Script" uid="uid://bjdkm1qv4qgfu" path="res://TargetDummy.cs" id="1_hnraw"]
+[ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="1_nhs1n"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_xlbcs"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_xlbcs"]
+
+[node name="TargetDummy" type="StaticBody3D" unique_id=1433057792]
+script = ExtResource("1_hnraw")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=215582167]
+shape = SubResource("CapsuleShape3D_xlbcs")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1877238885]
+mesh = SubResource("CapsuleMesh_xlbcs")
+
+[node name="Health" type="Node" parent="." unique_id=903835620]
+script = ExtResource("1_nhs1n")
+
+[node name="HealthLabel" type="Label3D" parent="." unique_id=1523535077]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+billboard = 1

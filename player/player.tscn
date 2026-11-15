@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ng7um6pv7siq" path="res://player/PlayerController.cs" id="1_rkbax"]
 [ext_resource type="Script" uid="uid://b0h4o0t807qr4" path="res://player/PlayerCamera.cs" id="2_g1dw6"]
+[ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="3_g1dw6"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -64,3 +65,6 @@ text = "+"
 unique_name_in_owner = true
 offset_right = 40.0
 offset_bottom = 23.0
+
+[node name="Health" type="Node" parent="." unique_id=1134940123]
+script = ExtResource("3_g1dw6")
