@@ -23,8 +23,8 @@ BiomeCellSize = 128.0
 
 [node name="PauseMenu" parent="." unique_id=486059089 instance=ExtResource("3_a0tk4")]
 
-[node name="TargetDummy" parent="." unique_id=1433057792 instance=ExtResource("8_jsk3o")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 35, 0)
-
 [node name="player" parent="." unique_id=1834096749 instance=ExtResource("2_noarx")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 38, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 48, 0)
+
+[node name="TargetDummy" parent="." unique_id=1433057792 instance=ExtResource("8_jsk3o")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 35, 0)

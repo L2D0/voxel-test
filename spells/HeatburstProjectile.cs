@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public partial class HeatburstProjectile : Node3D
 {
+    private const uint CharacterLayer = 1u << 1;   // physics layer 2
+
     public HeatburstSpell Spell;
     public PlayerController Caster;
     public Vector3 Direction;
@@ -38,10 +40,12 @@ public partial class HeatburstProjectile : Node3D
     {
         _exploded = true;
 
+        // Only look for characters, never terrain
         var shapeQuery = new PhysicsShapeQueryParameters3D
         {
             Shape = new SphereShape3D { Radius = Spell.Radius },
             Transform = new Transform3D(Basis.Identity, center),
+            CollisionMask = CharacterLayer,
         };
         var results = GetWorld3D().DirectSpaceState.IntersectShape(shapeQuery, 32);
 
@@ -49,25 +53,47 @@ public partial class HeatburstProjectile : Node3D
         foreach (var result in results)
         {
             var body = result["collider"].As<Node3D>();
-            if (body == null || !alreadyHit.Add(body)) continue;
+            if (body == null || body == Caster || !alreadyHit.Add(body)) continue;
 
             Vector3 offset = body.GlobalPosition - center;
             float distance = offset.Length();
-            float falloff = Mathf.Lerp(1f, Spell.MinFalloff, Mathf.Clamp(distance / Spell.Radius, 0f, 1f));
+            float falloff = Falloff(distance);
             Vector3 pushDir = distance > 0.01f ? offset / distance : Vector3.Up;
 
-            bool isCaster = body == Caster;
-            float damage = Spell.Damage * falloff * (isCaster ? Spell.SelfDamageMultiplier : 1f);
-            float knockback = (isCaster ? Spell.SelfKnockback : Spell.Knockback) * falloff;
-
-            Health.Of(body)?.TakeDamage(damage, Caster);
+            Health.Of(body)?.TakeDamage(Spell.Damage * falloff, Caster);
             if (body is IImpulseReceiver receiver)
-                receiver.AddImpulse(pushDir * knockback);
+                receiver.AddImpulse(pushDir * Spell.Knockback * falloff);
         }
 
+        ApplySelfHit(center);
         SpawnFlash(center);
         QueueFree();
     }
+
+    private void ApplySelfHit(Vector3 center)
+    {
+        // Measure to the closest point on the caster's capsule, not its centre
+        var capsule = Caster.GetNode<CollisionShape3D>("CollisionShape3D").Shape as CapsuleShape3D;
+        float radius = capsule?.Radius ?? 0.5f;
+        float halfSegment = (capsule?.Height ?? 2f) / 2f - radius;
+
+        Vector3 p = Caster.GlobalPosition;
+        Vector3 closest = Geometry3D.GetClosestPointToSegment(center, p + Vector3.Down * halfSegment, p + Vector3.Up * halfSegment);
+
+        float distance = Mathf.Max(center.DistanceTo(closest) - radius, 0f);
+        if (distance > Spell.Radius) return;
+
+        float falloff = Falloff(distance);
+        Vector3 offset = closest - center;
+        Vector3 pushDir = offset.LengthSquared() > 0.0001f ? offset.Normalized() : Vector3.Up;
+        pushDir = (pushDir + Vector3.Up * Spell.SelfUpwardBias).Normalized();
+
+        Health.Of(Caster)?.TakeDamage(Spell.Damage * falloff * Spell.SelfDamageMultiplier, Caster);
+        Caster.AddImpulse(pushDir * Spell.SelfKnockback * falloff);
+    }
+
+    private float Falloff(float distance) =>
+        Mathf.Lerp(1f, Spell.MinFalloff, Mathf.Clamp(distance / Spell.Radius, 0f, 1f));
 
     private void SpawnFlash(Vector3 center)
     {

@@ -8,6 +8,7 @@
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_xlbcs"]
 
 [node name="TargetDummy" type="StaticBody3D" unique_id=1433057792]
+collision_layer = 3
 script = ExtResource("1_hnraw")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=215582167]

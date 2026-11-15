@@ -6,6 +6,10 @@
 [resource]
 script = ExtResource("1_amnfb")
 ProjectileScene = ExtResource("1_ckcrh")
+Radius = 8.0
+Knockback = 14.0
+SelfKnockback = 14.0
+SelfUpwardBias = 0.8
 SpellName = "Heatburst"
 Element = 1
 RechargeTime = 1.2

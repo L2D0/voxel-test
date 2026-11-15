@@ -17,6 +17,7 @@
 radius = 0.2
 
 [node name="player" type="CharacterBody3D" unique_id=1834096749]
+collision_layer = 3
 script = ExtResource("1_rkbax")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=689808290]
@@ -73,6 +74,12 @@ offset_bottom = 23.0
 unique_name_in_owner = true
 offset_right = 40.0
 offset_bottom = 23.0
+
+[node name="HealthLabel" type="Label" parent="CanvasLayer" unique_id=1175304767]
+unique_name_in_owner = true
+offset_top = 14.0
+offset_right = 40.0
+offset_bottom = 37.0
 
 [node name="Health" type="Node" parent="." unique_id=1134940123]
 script = ExtResource("3_g1dw6")
