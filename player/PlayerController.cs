@@ -10,9 +10,12 @@ public partial class PlayerController : CharacterBody3D
     [Export] public float AimSpeedMult = 0.6f;
 
     [ExportGroup("Air")]
-    [Export] public float AirAccel = 10f;
-    [Export] public float AirWishSpeedCap = 0.6f;
+    [Export] public float AirAccel = 14f;
+    [Export] public float AirWishSpeedCap = 3.5f;
     [Export] public float MaxAirSpeed = 9f;
+    [Export] public float AirSteer = 4f;        // W-only steering strength (turns, keeps speed)
+    [Export] public float AirMoveSpeed = 3.5f;  // below this speed you get normal-ish air control
+    [Export] public float AirMoveAccel = 4f;
 
     [ExportGroup("Jump")]
     [Export] public float JumpVelocity = 5f;

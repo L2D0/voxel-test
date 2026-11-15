@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://baj3kn2fjf1hf" path="res://ui/pause_menu.gd" id="1_50142"]
 
 [node name="PauseMenu" type="CanvasLayer" unique_id=486059089]
+layer = 10
 script = ExtResource("1_50142")
 
 [node name="Dim" type="ColorRect" parent="." unique_id=614639345]
