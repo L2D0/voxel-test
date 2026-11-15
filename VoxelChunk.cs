@@ -17,6 +17,7 @@ public partial class VoxelChunk : Node3D
 
     public VoxelWorld World;
     public Vector3I Coord;
+    public float[] PendingSave;
     public bool HasData { get; private set; }
     public bool Modified { get; private set; }
     public float[] DensityData => _density;

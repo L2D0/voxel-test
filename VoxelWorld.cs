@@ -47,6 +47,13 @@ public partial class VoxelWorld : Node3D
 
     public override void _Ready()
     {
+        if (Biomes.Count == 0)
+        {
+            GD.PushError("VoxelWorld has no biomes assigned");
+            SetProcess(false);
+            return;
+        }
+
         // Copy to a plain C# array so worker threads never touch a Godot collection
         _biomes = new BiomeSettings[Biomes.Count];
         for (int i = 0; i < Biomes.Count; i++)
@@ -148,6 +155,7 @@ public partial class VoxelWorld : Node3D
 
         Vector3 origin = chunk.Position;   // copied to a plain value for the thread
         _savedEdits.Remove(coord, out float[] saved);
+        chunk.PendingSave = saved;
 
         _activeJobs++;
         Task.Run(() =>
@@ -195,7 +203,9 @@ public partial class VoxelWorld : Node3D
         _chunks.Remove(coord);
 
         if (chunk.Modified && chunk.DensityData != null)
-            _savedEdits[coord] = chunk.DensityData;   // only player-changed chunks are kept
+            _savedEdits[coord] = chunk.DensityData;
+        else if (!chunk.HasData && chunk.PendingSave != null)
+            _savedEdits[coord] = chunk.PendingSave;   // unloaded before its saved data was applied
 
         chunk.QueueFree();
     }
