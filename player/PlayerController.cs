@@ -57,7 +57,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
         _gameState = GetNode("/root/GameState");
         _health = GetNode<Health>("Health");
-    
 
         _aimRay.AddException(this);
         _spawnPoint = GlobalPosition;
@@ -233,8 +232,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _model.Rotation = rot;
     }
 
-    // ---------- Actions (temporary, these move into the spell framework next) ----------
-
     // ---------- Spells ----------
 
     public SpellContext BuildSpellContext()
@@ -253,6 +250,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
             AimPoint = point,
             AimNormal = hit ? _aimRay.GetCollisionNormal() : Vector3.Up,
             AimDirection = (point - origin).Normalized(),
+            AimCollider = hit ? _aimRay.GetCollider() : null,
             AimHit = hit,
         };
     }

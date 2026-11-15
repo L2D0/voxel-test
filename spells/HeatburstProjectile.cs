@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public partial class HeatburstProjectile : Node3D
 {
-    private const uint CharacterLayer = 1u << 1;   // physics layer 2
+    private const uint DamageableMask = (1u << 1) | (1u << 2);   // Characters + Structures
 
     public HeatburstSpell Spell;
     public PlayerController Caster;
@@ -40,12 +40,12 @@ public partial class HeatburstProjectile : Node3D
     {
         _exploded = true;
 
-        // Only look for characters, never terrain
+        // Only look for characters and structures, never terrain
         var shapeQuery = new PhysicsShapeQueryParameters3D
         {
             Shape = new SphereShape3D { Radius = Spell.Radius },
             Transform = new Transform3D(Basis.Identity, center),
-            CollisionMask = CharacterLayer,
+            CollisionMask = DamageableMask,
         };
         var results = GetWorld3D().DirectSpaceState.IntersectShape(shapeQuery, 32);
 

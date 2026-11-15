@@ -14,6 +14,10 @@ public partial class SpellCaster : Node
     private SpellContext _holding;
     private int _holdingIndex = -1;
 
+    private Node3D _preview;
+    private SpellDefinition _previewSpell;
+    private MeshInstance3D _rangeBubble;
+
     public override void _Ready()
     {
         _player = GetParent<PlayerController>();
@@ -22,6 +26,21 @@ public partial class SpellCaster : Node
         _charges = new float[Spells.Count];
         for (int i = 0; i < Spells.Count; i++)
             _charges[i] = Spells[i].MaxCharges;
+
+        // Faint dome showing the active spell's range (seen from the inside)
+        _rangeBubble = new MeshInstance3D
+        {
+            Mesh = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 48, Rings = 24 },
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Front,
+                AlbedoColor = new Color(0.6f, 0.8f, 1f, 0.07f),
+            },
+            Visible = false,
+        };
+        AddChild(_rangeBubble);
     }
 
     public float ChargesOf(int index) => _charges[index];
@@ -37,7 +56,6 @@ public partial class SpellCaster : Node
     {
         float dt = (float)delta;
 
-        // Charges refill one at a time, continuously
         for (int i = 0; i < Spells.Count; i++)
             if (_charges[i] < Spells[i].MaxCharges)
                 _charges[i] = Mathf.Min(_charges[i] + dt / Spells[i].RechargeTime, Spells[i].MaxCharges);
@@ -48,8 +66,53 @@ public partial class SpellCaster : Node
             Spells[_holdingIndex].Update(_holding, dt);
         }
 
+        UpdatePreview();
+
         if (_spellLabel != null && ActiveSpell != null)
             _spellLabel.Text = $"{ActiveSpell.SpellName}  {_charges[ActiveIndex]:0.0} / {ActiveSpell.MaxCharges}";
+    }
+
+    private void UpdatePreview()
+    {
+        SpellDefinition spell = ActiveSpell;
+
+        // Switched spells: throw away the old preview
+        if (_previewSpell != spell)
+        {
+            _preview?.QueueFree();
+            _preview = null;
+            _previewSpell = spell;
+        }
+
+        bool show = spell != null && _holding == null && _player.IsAiming && !_player.MenuOpen;
+        if (!show)
+        {
+            if (_preview != null) _preview.Visible = false;
+            _rangeBubble.Visible = false;
+            return;
+        }
+
+        if (_preview == null)
+        {
+            _preview = spell.CreatePreview();
+            if (_preview != null) AddChild(_preview);
+        }
+
+        SpellContext ctx = _player.BuildSpellContext();
+        bool valid = spell.IsTargetValid(ctx);
+
+        if (_preview != null)
+        {
+            _preview.Visible = true;
+            spell.UpdatePreview(_preview, ctx, valid);
+        }
+
+        _rangeBubble.Visible = spell.Range > 0f;
+        if (_rangeBubble.Visible)
+        {
+            _rangeBubble.GlobalPosition = _player.GlobalPosition;
+            _rangeBubble.Scale = Vector3.One * spell.Range;
+        }
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -66,17 +129,16 @@ public partial class SpellCaster : Node
         if (spell == null || _holding != null || _charges[ActiveIndex] < 1f) return;
 
         SpellContext ctx = _player.BuildSpellContext();
+        if (!spell.Begin(ctx)) return;   // invalid target, nothing spent
 
         if (spell.Mode == CastMode.Instant)
         {
             _charges[ActiveIndex] -= 1f;
-            spell.Begin(ctx);
         }
         else
         {
             _holding = ctx;
             _holdingIndex = ActiveIndex;
-            spell.Begin(ctx);
         }
     }
 

@@ -18,7 +18,7 @@ public partial class HeatburstSpell : SpellDefinition
     [Export(PropertyHint.Range, "0,1")] public float SelfDamageMultiplier = 0.35f;
     [Export(PropertyHint.Range, "0,1")] public float MinFalloff = 0.3f;   // strength at the very edge of the radius
 
-    public override void Begin(SpellContext ctx)
+    public override bool Begin(SpellContext ctx)
     {
         var projectile = ProjectileScene.Instantiate<HeatburstProjectile>();
         projectile.Spell = this;
@@ -27,5 +27,6 @@ public partial class HeatburstSpell : SpellDefinition
 
         ctx.Caster.GetTree().CurrentScene.AddChild(projectile);
         projectile.GlobalPosition = ctx.CastOrigin;
+        return true;
     }
 }
