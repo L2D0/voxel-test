@@ -11,7 +11,7 @@ public partial class PlayerController : CharacterBody3D
 
     [ExportGroup("Air")]
     [Export] public float AirAccel = 14f;
-    [Export] public float AirWishSpeedCap = 3.5f;
+    [Export] public float AirWishSpeedCap = 1f;
     [Export] public float MaxAirSpeed = 9f;
     [Export] public float AirSteer = 4f;        // W-only steering strength (turns, keeps speed)
     [Export] public float AirMoveSpeed = 3.5f;  // below this speed you get normal-ish air control
@@ -108,7 +108,17 @@ public partial class PlayerController : CharacterBody3D
         }
         else
         {
+            // Low speed: near-normal control, for small hops and platforming
+            if (horiz.Length() < AirMoveSpeed)
+                horiz = Accelerate(horiz, wishDir, Mathf.Min(wishSpeed, AirMoveSpeed), AirMoveAccel * AirControlScale, dt);
+
+            // Strafe gains
             horiz = AirAccelerate(horiz, wishDir, wishSpeed, dt);
+
+            // W only, no strafe keys: steer toward the camera without changing speed
+            if (Mathf.Abs(input.X) < 0.01f && input.Y < 0f)
+                horiz = ApplyAirSteer(horiz, wishDir, dt);
+
             vel += GetGravity() * GravityScale * dt;
         }
 
@@ -160,6 +170,19 @@ public partial class PlayerController : CharacterBody3D
         float limit = Mathf.Max(before, MaxAirSpeed);
         if (result.Length() > limit) result = result.Normalized() * limit;
         return result;
+    }
+
+    private Vector3 ApplyAirSteer(Vector3 v, Vector3 wishDir, float dt)
+    {
+        float speed = v.Length();
+        if (speed < 0.1f) return v;
+
+        Vector3 dir = v / speed;
+        float dot = dir.Dot(wishDir);
+        if (dot <= 0f) return v;   // only steers toward where you're already roughly heading
+
+        dir = (dir + wishDir * AirSteer * AirControlScale * dot * dot * dt).Normalized();
+        return dir * speed;
     }
 
     private void UpdateFacing(Vector3 wishDir, float dt)
