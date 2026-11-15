@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bscbtgskk2873"]
 
-[ext_resource type="Script" uid="uid://bjdkm1qv4qgfu" path="res://TargetDummy.cs" id="1_hnraw"]
+[ext_resource type="Script" uid="uid://bjdkm1qv4qgfu" path="res://combat/TargetDummy.cs" id="1_hnraw"]
 [ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="1_nhs1n"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_xlbcs"]
