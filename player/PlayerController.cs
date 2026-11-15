@@ -1,6 +1,6 @@
 using Godot;
 
-public partial class PlayerController : CharacterBody3D
+public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 {
     [ExportGroup("Ground")]
     [Export] public float MaxGroundSpeed = 6f;
@@ -41,7 +41,6 @@ public partial class PlayerController : CharacterBody3D
     private Label _healthLabel;
     private Node _gameState;
     private Health _health;
-    private PackedScene _fireballScene;
 
     private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
@@ -58,7 +57,7 @@ public partial class PlayerController : CharacterBody3D
         _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
         _gameState = GetNode("/root/GameState");
         _health = GetNode<Health>("Health");
-        _fireballScene = GD.Load<PackedScene>("res://spells/fireball.tscn");
+    
 
         _aimRay.AddException(this);
         _spawnPoint = GlobalPosition;
@@ -236,28 +235,34 @@ public partial class PlayerController : CharacterBody3D
 
     // ---------- Actions (temporary, these move into the spell framework next) ----------
 
+    // ---------- Spells ----------
+
+    public SpellContext BuildSpellContext()
+    {
+        _model.Rotation = new Vector3(0, _camera.Yaw, 0);   // face where you're casting
+
+        _aimRay.ForceRaycastUpdate();
+        bool hit = _aimRay.IsColliding();
+        Vector3 point = hit ? _aimRay.GetCollisionPoint() : _aimRay.ToGlobal(_aimRay.TargetPosition);
+        Vector3 origin = _castPoint.GlobalPosition;
+
+        return new SpellContext
+        {
+            Caster = this,
+            CastOrigin = origin,
+            AimPoint = point,
+            AimNormal = hit ? _aimRay.GetCollisionNormal() : Vector3.Up,
+            AimDirection = (point - origin).Normalized(),
+            AimHit = hit,
+        };
+    }
+
+    // ---------- Debug actions ----------
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (MenuOpen) return;
-
-        if (e.IsActionPressed("cast")) Cast();
         if (e.IsActionPressed("build")) BuildTerrain();
-    }
-
-    private void Cast()
-    {
-        _model.Rotation = new Vector3(0, _camera.Yaw, 0);
-
-        _aimRay.ForceRaycastUpdate();
-        Vector3 target = _aimRay.IsColliding()
-            ? _aimRay.GetCollisionPoint()
-            : _aimRay.ToGlobal(_aimRay.TargetPosition);
-
-        var fireball = _fireballScene.Instantiate<Node3D>();
-        GetTree().CurrentScene.AddChild(fireball);
-        fireball.GlobalPosition = _castPoint.GlobalPosition;
-        fireball.Set("direction", (target - fireball.GlobalPosition).Normalized());
-        fireball.Set("caster", this);
     }
 
     private void BuildTerrain()

@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://bhn226rmh7bxt"]
+
+[ext_resource type="Script" uid="uid://red6r2cbyt5q" path="res://spells/HeatburstProjectile.cs" id="1_jfm6m"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sst5f"]
+emission_enabled = true
+emission = Color(0.9411765, 0.6156863, 0, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_xlbcs"]
+material = SubResource("StandardMaterial3D_sst5f")
+radius = 0.2
+height = 0.4
+
+[node name="HeatburstProjectile" type="Node3D" unique_id=2137302180]
+script = ExtResource("1_jfm6m")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1523497979]
+mesh = SubResource("SphereMesh_xlbcs")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=943464694]
+omni_range = 3.0
