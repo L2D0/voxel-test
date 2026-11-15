@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://ckudr8chj1kgo"]
 
-[ext_resource type="Script" uid="uid://drlldp7l6q0o4" path="res://player/player.gd" id="1_4flbx"]
+[ext_resource type="Script" uid="uid://ng7um6pv7siq" path="res://player/PlayerController.cs" id="1_rkbax"]
+[ext_resource type="Script" uid="uid://b0h4o0t807qr4" path="res://player/PlayerCamera.cs" id="2_g1dw6"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -12,7 +13,7 @@
 radius = 0.2
 
 [node name="player" type="CharacterBody3D" unique_id=1834096749]
-script = ExtResource("1_4flbx")
+script = ExtResource("1_rkbax")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=689808290]
 shape = SubResource("CapsuleShape3D_g4v7s")
@@ -31,6 +32,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -0.8)
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1932564801]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+script = ExtResource("2_g1dw6")
 
 [node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot" unique_id=916567558]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, 0)
@@ -56,3 +58,8 @@ grow_vertical = 2
 [node name="Label" type="Label" parent="CanvasLayer/CenterContainer" unique_id=360699337]
 layout_mode = 2
 text = "+"
+
+[node name="SpeedLabel" type="Label" parent="CanvasLayer" unique_id=1024237952]
+unique_name_in_owner = true
+offset_right = 40.0
+offset_bottom = 23.0
