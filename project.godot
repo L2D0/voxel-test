@@ -19,7 +19,6 @@ config/icon="res://icon.svg"
 
 Settings="*uid://dm1ydyjyahggd"
 GameState="*uid://c413kfyku383f"
-NetworkManager="*uid://djd02fvs0vjah"
 
 [display]
 
