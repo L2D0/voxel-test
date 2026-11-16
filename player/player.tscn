@@ -14,7 +14,7 @@
 [ext_resource type="Resource" uid="uid://h7gy8lded6vk" path="res://modifiers/test_fast_recharge.tres" id="12_wodsf"]
 [ext_resource type="Resource" uid="uid://cbek4a6ce44r7" path="res://modifiers/test_earth_height.tres" id="13_32hag"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
-[ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/game_menu.tscn" id="15_32hag"]
+[ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
 [ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="15_s7qer"]
 [ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="16_g4c7l"]
 [ext_resource type="Resource" uid="uid://ck5ej4okoq8m1" path="res://skills/earth_seismic.tres" id="17_knn7v"]
