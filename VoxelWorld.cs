@@ -52,9 +52,14 @@ public partial class VoxelWorld : Node3D
     {
         AddToGroup("voxel_world");
 
-        Node settings = GetNode("/root/Settings");
-        _drawDistance = settings.Get("draw_distance").AsInt32();
-        settings.Connect("draw_distance_changed", Callable.From<int>(OnDrawDistanceChanged));
+        _drawDistance = Settings.DrawDistance;
+        Settings.DrawDistanceChanged += OnDrawDistanceChanged;
+    }
+
+    public override void _ExitTree()
+    {
+        // Static events keep subscribers alive: always unsubscribe on the way out
+        Settings.DrawDistanceChanged -= OnDrawDistanceChanged;
     }
 
     // Called once the session knows the world seed (host: immediately, client: when received)

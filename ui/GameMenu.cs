@@ -7,12 +7,10 @@ public partial class GameMenu : CanvasLayer
     private enum Page { Closed, Hub, Magic, Wip }
 
     private Page _page = Page.Closed;
-    private Node _gameState;
     private Control _hub, _magic, _wip;
 
     public override void _Ready()
     {
-        _gameState = GetNode("/root/GameState");
         _hub = GetNode<Control>("%Hub");
         _wip = GetNode<Control>("%WipPage");
 
@@ -33,7 +31,6 @@ public partial class GameMenu : CanvasLayer
         {
             if (_page == Page.Closed)
             {
-                if (!_gameState.Get("menu_open").AsBool()) Open();
             }
             else
             {
@@ -53,14 +50,12 @@ public partial class GameMenu : CanvasLayer
     private void Open()
     {
         ShowPage(Page.Hub);
-        _gameState.Set("menu_open", true);
         Input.MouseMode = Input.MouseModeEnum.Visible;
     }
 
     private void Close()
     {
         ShowPage(Page.Closed);
-        _gameState.Set("menu_open", false);
         Input.MouseMode = Input.MouseModeEnum.Captured;
     }
 

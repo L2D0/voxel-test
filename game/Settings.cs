@@ -16,9 +16,4 @@ public static class Settings
             DrawDistanceChanged?.Invoke(value);
         }
     }
-}using Godot;
-using System;
-
-public partial class Settings : Node
-{
 }

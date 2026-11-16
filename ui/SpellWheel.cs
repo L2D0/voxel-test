@@ -14,7 +14,6 @@ public partial class SpellWheel : Control
     private static readonly Color HoverColor = new Color(1f, 0.75f, 0.35f, 0.9f);
     private static readonly Color ChargeColor = new Color(1f, 0.85f, 0.5f);
 
-    private Node _gameState;
     private Font _font;
     private Vector2 _cursor;
     private int _hovered = -1;
@@ -22,13 +21,12 @@ public partial class SpellWheel : Control
 
     public override void _Ready()
     {
-        _gameState = GetNode("/root/GameState");
         _font = GetThemeDefaultFont();
         Visible = false;
         MouseFilter = MouseFilterEnum.Ignore;
     }
 
-    private bool MenuOpen => _gameState.Get("menu_open").AsBool();
+    private static bool MenuOpen => GameState.MenuOpen;
 
     public override void _Input(InputEvent e)
     {

@@ -40,7 +40,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private RayCast3D _aimRay;
     private Label _speedLabel;
     private Label _healthLabel;
-    private Node _gameState;
     private Health _health;
 
     private Vector3 _spawnPoint;
@@ -64,7 +63,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _aimRay = GetNode<RayCast3D>("CameraPivot/SpringArm3D/Camera3D/AimRay");
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
         _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
-        _gameState = GetNode("/root/GameState");
         _health = GetNode<Health>("Health");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
@@ -77,7 +75,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
         if (IsMultiplayerAuthority())
         {
-            GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").MakeCurrent();
+
+            GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").MakeCurrent(); GameState.InGame = true;
             (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this);
         }
         else
@@ -109,7 +108,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         if (GetNodeOrNull("GameMenu") is CanvasLayer menu) menu.Visible = false;
     }
 
-    public bool MenuOpen => _gameState.Get("menu_open").AsBool();
+    public bool MenuOpen => GameState.MenuOpen;
 
     public void AddImpulse(Vector3 impulse)
     {
