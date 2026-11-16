@@ -1,8 +1,10 @@
 [gd_scene format=3 uid="uid://v7wt7fu0rrhb"]
 
 [ext_resource type="Script" uid="uid://cec81aqw8d1fh" path="res://ui/SkillTreeView.cs" id="1_3ptas"]
+[ext_resource type="Script" uid="uid://clm6k5tr6aq6u" path="res://ui/GameMenu.cs" id="1_vthkq"]
 
 [node name="GameMenu" type="CanvasLayer" unique_id=187448465]
+script = ExtResource("1_vthkq")
 
 [node name="Dim" type="ColorRect" parent="." unique_id=524635199]
 anchors_preset = 15
@@ -29,7 +31,7 @@ theme_override_constants/separation = 60
 unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 80)
 layout_mode = 2
-text = "WIP"
+text = "Physical"
 
 [node name="MagicButton" type="Button" parent="Hub/Hbox" unique_id=1727625566]
 unique_name_in_owner = true
@@ -37,11 +39,11 @@ custom_minimum_size = Vector2(220, 80)
 layout_mode = 2
 text = "Magic"
 
-[node name="InveentoryButton" type="Button" parent="Hub/Hbox" unique_id=745644333]
+[node name="InventoryButton" type="Button" parent="Hub/Hbox" unique_id=745644333]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 80)
 layout_mode = 2
-text = "WIP"
+text = "Inventory"
 
 [node name="MagicPage" type="Control" parent="." unique_id=1511905542]
 unique_name_in_owner = true

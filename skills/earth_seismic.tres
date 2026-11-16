@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://ck5ej4okoq8m1"]
+
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_x2h43"]
+[ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_pkjho"]
+[ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="3_pkjho"]
+
+[resource]
+script = ExtResource("2_pkjho")
+Id = "earth_seismic"
+DisplayName = "Seismic Crumble"
+Description = "Pillar deals damage in an area to enemies after crumbling."
+Element = 10
+Ring = 1.5
+AngleOffset = -8.0
+Prerequisites = Array[ExtResource("2_pkjho")]([ExtResource("3_pkjho")])
+Flags = PackedStringArray("SeismicCrumble")
+metadata/_custom_type_script = "uid://cihtbjv3bo06f"

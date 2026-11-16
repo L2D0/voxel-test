@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://vertftpioamy"]
+
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_yggtm"]
+[ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_co76g"]
+[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="2_ungft"]
+[ext_resource type="Resource" uid="uid://cuad0dnq8qlkb" path="res://spells/heatburst.tres" id="3_b4v4o"]
+[ext_resource type="Resource" uid="uid://1rjnx77lv8if" path="res://skills/fire_kindling.tres" id="5_6qsxc"]
+[ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="6_rbph4"]
+
+[sub_resource type="Resource" id="Resource_fc6p5"]
+script = ExtResource("1_yggtm")
+Element = 10
+Spell = ExtResource("2_ungft")
+Stat = "RiseSpeed"
+Op = 1
+Value = 0.3
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[sub_resource type="Resource" id="Resource_s03ox"]
+script = ExtResource("1_yggtm")
+Element = 1
+Spell = ExtResource("3_b4v4o")
+Stat = "Damage"
+Op = 1
+Value = 0.2
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[resource]
+script = ExtResource("2_co76g")
+Id = "fusion_molten"
+DisplayName = "Molten Core"
+Description = "Stone pillar rise speed increased by 30%
+Heatburst deals 20% more damage"
+Element = 10
+FusionWith = 1
+Ring = 1.0
+Prerequisites = Array[ExtResource("2_co76g")]([ExtResource("5_6qsxc"), ExtResource("6_rbph4")])
+Modifiers = Array[ExtResource("1_yggtm")]([SubResource("Resource_fc6p5"), SubResource("Resource_s03ox")])
+metadata/_custom_type_script = "uid://cihtbjv3bo06f"

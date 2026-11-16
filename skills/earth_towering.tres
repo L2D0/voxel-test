@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://bibwxa5mti5sw"]
+
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_ywuv7"]
+[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="2_l2dwt"]
+[ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_xxnqu"]
+[ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="4_7d0t2"]
+
+[sub_resource type="Resource" id="Resource_l2dwt"]
+script = ExtResource("1_ywuv7")
+Element = 10
+Spell = ExtResource("2_l2dwt")
+Stat = "MaxHeight"
+Op = 1
+Value = 0.25
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[resource]
+script = ExtResource("2_xxnqu")
+Id = "earth_towering"
+DisplayName = "Towering"
+Description = "Stone pillar max height increased by 25%"
+Element = 10
+Ring = 1.5
+AngleOffset = 8.0
+Prerequisites = Array[ExtResource("2_xxnqu")]([ExtResource("4_7d0t2")])
+Modifiers = Array[ExtResource("1_ywuv7")]([SubResource("Resource_l2dwt")])
+metadata/_custom_type_script = "uid://cihtbjv3bo06f"

@@ -114,4 +114,5 @@ DebugModifiers = Array[ExtResource("10_yllr7")]([ExtResource("11_kb6p2"), ExtRes
 [node name="SkillTree" type="Node" parent="." unique_id=196627311]
 script = ExtResource("14_wodsf")
 
-[node name="GameMenu" parent="." unique_id=187448465 instance=ExtResource("15_32hag")]
+[node name="GameMenu" parent="." unique_id=187448465 node_paths=PackedStringArray("SkillTree") instance=ExtResource("15_32hag")]
+SkillTree = NodePath("../SkillTree")
