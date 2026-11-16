@@ -44,8 +44,21 @@ public partial class VoxelWorld : Node3D
     private Vector3I _lastCenter = new Vector3I(int.MaxValue, 0, int.MaxValue);
     private bool _dirty = true;
     private bool _spawnReady;
+    private bool _initialized;
+
+    // ---------- Setup ----------
 
     public override void _Ready()
+    {
+        AddToGroup("voxel_world");
+
+        Node settings = GetNode("/root/Settings");
+        _drawDistance = settings.Get("draw_distance").AsInt32();
+        settings.Connect("draw_distance_changed", Callable.From<int>(OnDrawDistanceChanged));
+    }
+
+    // Called once the session knows the world seed (host: immediately, client: when received)
+    public void Initialize(int seed)
     {
         if (Biomes.Count == 0)
         {
@@ -53,6 +66,8 @@ public partial class VoxelWorld : Node3D
             SetProcess(false);
             return;
         }
+
+        Seed = seed;
 
         // Copy to a plain C# array so worker threads never touch a Godot collection
         _biomes = new BiomeSettings[Biomes.Count];
@@ -62,12 +77,17 @@ public partial class VoxelWorld : Node3D
             _biomes[i].Init(Seed);
         }
 
-        Node settings = GetNode("/root/Settings");
-        _drawDistance = settings.Get("draw_distance").AsInt32();
-        settings.Connect("draw_distance_changed", Callable.From<int>(OnDrawDistanceChanged));
+        _initialized = true;
+        _dirty = true;
+    }
 
-        if (Player != null)
-            Player.ProcessMode = ProcessModeEnum.Disabled;   // frozen until the ground exists
+    // The player this machine streams terrain around
+    public void SetPlayer(Node3D player)
+    {
+        Player = player;
+        Player.ProcessMode = ProcessModeEnum.Disabled;   // frozen until the ground exists
+        _spawnReady = false;
+        _dirty = true;
     }
 
     private void OnDrawDistanceChanged(int value)
@@ -78,7 +98,7 @@ public partial class VoxelWorld : Node3D
 
     public override void _Process(double delta)
     {
-        if (Player == null) return;
+        if (!_initialized || Player == null) return;
 
         Vector3I center = ChunkColumnOf(Player.GlobalPosition);
         if (center != _lastCenter || _dirty)

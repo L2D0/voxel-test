@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://bjcrl27d35gee"]
+
+[ext_resource type="Script" uid="uid://c7v42womx8stw" path="res://ui/NetworkMenu.cs" id="1_gjf8o"]
+
+[node name="NetworkMenu" type="CanvasLayer" unique_id=911934013]
+script = ExtResource("1_gjf8o")
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=2042169065]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer" unique_id=1314702880]
+layout_mode = 2
+
+[node name="HostButton" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1850418389]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Host"
+
+[node name="AddressEdit" type="LineEdit" parent="CenterContainer/VBoxContainer" unique_id=1135596046]
+unique_name_in_owner = true
+layout_mode = 2
+text = "127.0.0.1"
+
+[node name="JoinButton" type="Button" parent="CenterContainer/VBoxContainer" unique_id=269834595]
+unique_name_in_owner = true
+layout_mode = 2

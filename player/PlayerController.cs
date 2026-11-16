@@ -32,7 +32,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     public float AirControlScale = 1f;
 
     public bool IsAiming { get; private set; }
-
     public SkillTree Skills { get; private set; }
 
     private PlayerCamera _camera;
@@ -49,9 +48,16 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private float _coyoteTimer;
     private float _launchTimer;
 
+    // ---------- Setup ----------
+
+    public override void _EnterTree()
+    {
+        // Runs before _Ready: the peer named in this node's name controls it
+        SetMultiplayerAuthority(int.Parse(Name));
+    }
+
     public override void _Ready()
     {
-        Skills = GetNodeOrNull<SkillTree>("SkillTree");
         _camera = GetNode<PlayerCamera>("CameraPivot");
         _model = GetNode<Node3D>("Model");
         _castPoint = GetNode<Marker3D>("Model/CastPoint");
@@ -60,6 +66,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
         _gameState = GetNode("/root/GameState");
         _health = GetNode<Health>("Health");
+        Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
         _aimRay.AddException(this);
         _spawnPoint = GlobalPosition;
@@ -67,6 +74,39 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _health.Changed += (current, max) => UpdateHealthLabel();
         _health.Died += OnDied;
         UpdateHealthLabel();
+
+        if (IsMultiplayerAuthority())
+        {
+            GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").MakeCurrent();
+            (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this);
+        }
+        else
+        {
+            DisableRemote();
+        }
+    }
+
+    // Another machine controls this player: we only display it
+    private void DisableRemote()
+    {
+        SetPhysicsProcess(false);
+        SetProcessUnhandledInput(false);
+
+        _camera.SetProcess(false);
+        _camera.SetProcessUnhandledInput(false);
+        GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").Current = false;
+
+        foreach (string path in new[] { "Spellcaster", "Modifiers", "GameMenu", "CanvasLayer/SpellWheel" })
+        {
+            Node node = GetNodeOrNull(path);
+            if (node == null) continue;
+            node.SetProcess(false);
+            node.SetProcessInput(false);
+            node.SetProcessUnhandledInput(false);
+        }
+
+        GetNode<CanvasLayer>("CanvasLayer").Visible = false;
+        if (GetNodeOrNull("GameMenu") is CanvasLayer menu) menu.Visible = false;
     }
 
     public bool MenuOpen => _gameState.Get("menu_open").AsBool();
