@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public partial class SpellCaster : Node
 {
@@ -12,8 +13,13 @@ public partial class SpellCaster : Node
     private Label _spellLabel;
     private float[] _charges;
 
-    private SpellContext _holding;
+    // Owner only: the hold-cast this machine's player is currently performing
+    private int _holdingCastId = -1;
     private int _holdingIndex = -1;
+    private int _nextCastId;
+
+    // Every machine: hold-casts in progress, by cast id
+    private readonly Dictionary<int, SpellContext> _activeHolds = new();
 
     private Node3D _preview;
     private SpellDefinition _previewSpell;
@@ -43,6 +49,8 @@ public partial class SpellCaster : Node
         };
         AddChild(_rangeBubble);
     }
+
+    private bool IsLocal => _player.IsMultiplayerAuthority();
 
     // ---------- Stats ----------
 
@@ -77,17 +85,20 @@ public partial class SpellCaster : Node
     {
         float dt = (float)delta;
 
+        // Every machine keeps hold-casts ticking
+        foreach (SpellContext ctx in _activeHolds.Values)
+        {
+            ctx.HeldTime += dt;
+            ctx.Spell.Update(ctx, dt);
+        }
+
+        if (!IsLocal) return;   // charges, preview and HUD are only for this machine's own player
+
         for (int i = 0; i < Spells.Count; i++)
         {
             int max = MaxChargesOf(i);
-            if (_charges[i] > max) _charges[i] = max;   // a modifier was removed
+            if (_charges[i] > max) _charges[i] = max;
             else if (_charges[i] < max) _charges[i] = Mathf.Min(_charges[i] + dt / RechargeTimeOf(i), max);
-        }
-
-        if (_holding != null)
-        {
-            _holding.HeldTime += dt;
-            Spells[_holdingIndex].Update(_holding, dt);
         }
 
         UpdatePreview();
@@ -107,7 +118,7 @@ public partial class SpellCaster : Node
             _previewSpell = spell;
         }
 
-        bool show = spell != null && _holding == null && _player.IsAiming && !_player.MenuOpen;
+        bool show = spell != null && _holdingCastId < 0 && _player.IsAiming && !_player.MenuOpen;
         if (!show)
         {
             if (_preview != null) _preview.Visible = false;
@@ -139,11 +150,11 @@ public partial class SpellCaster : Node
         }
     }
 
-    // ---------- Casting ----------
+    // ---------- Casting (owner) ----------
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_player.MenuOpen) return;
+        if (!IsLocal || _player.MenuOpen) return;
 
         if (e.IsActionPressed("cast")) StartCast();
         else if (e.IsActionReleased("cast")) ReleaseCast();
@@ -152,10 +163,14 @@ public partial class SpellCaster : Node
     private void StartCast()
     {
         SpellDefinition spell = ActiveSpell;
-        if (spell == null || _holding != null || _charges[ActiveIndex] < 1f) return;
+        if (spell == null || _holdingCastId >= 0 || _charges[ActiveIndex] < 1f) return;
 
         SpellContext ctx = BuildContext(spell);
-        if (!spell.Begin(ctx)) return;   // invalid target, nothing spent
+        if (!spell.IsTargetValid(ctx)) return;   // validated here, on the machine that can see the target
+
+        int castId = _nextCastId++;
+        Rpc(MethodName.ReplicateBegin, ActiveIndex, castId,
+            ctx.CastOrigin, ctx.AimPoint, ctx.AimNormal, ctx.AimDirection, ctx.AimHit);
 
         if (spell.Mode == CastMode.Instant)
         {
@@ -163,27 +178,66 @@ public partial class SpellCaster : Node
         }
         else
         {
-            _holding = ctx;
+            _holdingCastId = castId;
             _holdingIndex = ActiveIndex;
         }
     }
 
     private void ReleaseCast()
     {
-        if (_holding == null) return;
+        if (_holdingCastId < 0) return;
 
         _charges[_holdingIndex] -= 1f;
-        Spells[_holdingIndex].Release(_holding);
-        _holding = null;
+        Rpc(MethodName.ReplicateRelease, _holdingCastId);
+        _holdingCastId = -1;
         _holdingIndex = -1;
     }
 
     private void CancelHold()
     {
-        if (_holding == null) return;
+        if (_holdingCastId < 0) return;
 
-        Spells[_holdingIndex].Cancel(_holding);
-        _holding = null;
+        Rpc(MethodName.ReplicateCancel, _holdingCastId);
+        _holdingCastId = -1;
         _holdingIndex = -1;
+    }
+
+    // ---------- Casting (every machine) ----------
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReplicateBegin(int spellIndex, int castId, Vector3 origin, Vector3 aimPoint,
+                                Vector3 aimNormal, Vector3 aimDirection, bool aimHit)
+    {
+        if (spellIndex < 0 || spellIndex >= Spells.Count) return;
+        SpellDefinition spell = Spells[spellIndex];
+
+        var ctx = new SpellContext
+        {
+            Caster = _player,
+            Spell = spell,
+            Mods = _mods,
+            CastId = castId,
+            Authoritative = Multiplayer.IsServer(),
+            CastOrigin = origin,
+            AimPoint = aimPoint,
+            AimNormal = aimNormal,
+            AimDirection = aimDirection,
+            AimHit = aimHit,
+        };
+
+        if (!spell.Begin(ctx)) return;
+        if (spell.Mode == CastMode.Hold) _activeHolds[castId] = ctx;
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReplicateRelease(int castId)
+    {
+        if (_activeHolds.Remove(castId, out SpellContext ctx)) ctx.Spell.Release(ctx);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReplicateCancel(int castId)
+    {
+        if (_activeHolds.Remove(castId, out SpellContext ctx)) ctx.Spell.Cancel(ctx);
     }
 }

@@ -159,7 +159,7 @@ public partial class StonePillar : AnimatableBody3D
         if (_state == State.Crumbling) return;
         _state = State.Crumbling;
 
-        if (Ctx.HasFlag("SeismicCrumble")) SeismicBurst();
+        if (Ctx.Authoritative && Ctx.HasFlag("SeismicCrumble")) SeismicBurst();
 
         foreach (CollisionShape3D shape in _shapes)
             shape.SetDeferred(CollisionShape3D.PropertyName.Disabled, true);

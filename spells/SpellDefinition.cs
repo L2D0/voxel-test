@@ -40,6 +40,8 @@ public class SpellContext
     public bool AimHit;
     public float HeldTime;
     public Node3D Instance;
+    public int CastId;            // unique per caster, the same on every machine
+    public bool Authoritative;    // true on the host: only the host applies damage and shared effects
 
     // The effective value of a stat for this cast: base value plus every active modifier
     public float Stat(string name) => Mods != null ? Mods.Get(Spell, name) : Spell.Get(name).AsSingle();

@@ -31,11 +31,11 @@ public partial class StonePillarSpell : SpellDefinition
 
     public override bool Begin(SpellContext ctx)
     {
-        if (!IsTargetValid(ctx)) return false;
 
         var pillar = new StonePillar
         {
             Ctx = ctx,
+            Name = $"Pillar_{ctx.Caster.Name}_{ctx.CastId}",
             Axis = ctx.AimNormal,
             Transform = new Transform3D(BasisFromUp(ctx.AimNormal), ctx.AimPoint - ctx.AimNormal * 0.3f),
         };

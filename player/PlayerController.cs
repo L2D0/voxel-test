@@ -95,7 +95,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _camera.SetProcessUnhandledInput(false);
         GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").Current = false;
 
-        foreach (string path in new[] { "Spellcaster", "Modifiers", "GameMenu", "CanvasLayer/SpellWheel" })
+        foreach (string path in new[] { "Modifiers", "GameMenu", "CanvasLayer/SpellWheel" })
         {
             Node node = GetNodeOrNull(path);
             if (node == null) continue;
@@ -110,7 +110,20 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     public bool MenuOpen => GameState.MenuOpen;
 
-    public void AddImpulse(Vector3 impulse)
+        public void AddImpulse(Vector3 impulse)
+    {
+        if (IsMultiplayerAuthority()) ApplyImpulse(impulse);
+        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveImpulse, impulse);   // their machine moves them
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveImpulse(Vector3 impulse)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host sends knockback
+        ApplyImpulse(impulse);
+    }
+
+    private void ApplyImpulse(Vector3 impulse)
     {
         Velocity += impulse;
         _launchTimer = 0.15f;   // ignore the ground briefly so friction can't eat the launch
@@ -126,9 +139,12 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     private void OnDied(Node source)
     {
-        GlobalPosition = _spawnPoint;
-        Velocity = Vector3.Zero;
-        _health.Reset();
+        if (IsMultiplayerAuthority())
+        {
+            GlobalPosition = _spawnPoint;   // my machine moves me
+            Velocity = Vector3.Zero;
+        }
+        if (Multiplayer.IsServer()) _health.Reset();   // the host owns health
     }
 
     // ---------- Movement ----------

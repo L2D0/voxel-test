@@ -20,6 +20,7 @@ public partial class TargetDummy : StaticBody3D
 
         _health.Damaged += OnDamaged;
         _health.Died += OnDied;
+        _health.Changed += (current, max) => UpdateLabel();
         UpdateLabel();
     }
 
@@ -35,11 +36,8 @@ public partial class TargetDummy : StaticBody3D
     private void OnDied(Node source)
     {
         _label.Text = "DEAD";
-        GetTree().CreateTimer(RespawnTime).Timeout += () =>
-        {
-            _health.Reset();
-            UpdateLabel();
-        };
+        if (!Multiplayer.IsServer()) return;   // the host revives it; everyone hears about it through Changed
+        GetTree().CreateTimer(RespawnTime).Timeout += () => _health.Reset();
     }
 
     private void UpdateLabel() => _label.Text = $"{_health.Current:0} / {_health.MaxHealth:0}";

@@ -28,8 +28,22 @@ public partial class SkillTree : Node
 
     public bool HasFlag(string flag) => _flags.TryGetValue(flag, out int count) && count > 0;
 
-    public void Toggle(SkillNode node)
+    // Learning and unlearning runs on every machine, so everyone computes the same spell stats
+    public void Toggle(SkillNode node) => Rpc(MethodName.ToggleRpc, node.Id);
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ToggleRpc(string id)
     {
+        SkillNode node = null;
+        foreach (SkillNode n in Nodes)
+            if (n.Id == id) { node = n; break; }
+
+        if (node == null)
+        {
+            GD.PushWarning($"Unknown skill '{id}'");
+            return;
+        }
+
         if (IsUnlocked(node)) Lock(node);
         else Unlock(node);
     }

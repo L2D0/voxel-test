@@ -323,9 +323,24 @@ public partial class VoxelWorld : Node3D
 
     // ---------- Editing ----------
 
-    public void Carve(Vector3 worldPoint, float radius) => Edit(worldPoint, radius, false);
-    public void Fill(Vector3 worldPoint, float radius) => Edit(worldPoint, radius, true);
+    public void Carve(Vector3 worldPoint, float radius) => SubmitEdit(worldPoint, radius, false);
+    public void Fill(Vector3 worldPoint, float radius) => SubmitEdit(worldPoint, radius, true);
 
+    // Edits go through the host, which broadcasts them to everyone, itself included
+    private void SubmitEdit(Vector3 point, float radius, bool fill)
+    {
+        if (Multiplayer.IsServer()) Rpc(MethodName.ApplyEdit, point, radius, fill);
+        else RpcId(1, MethodName.RequestEdit, point, radius, fill);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void RequestEdit(Vector3 point, float radius, bool fill)
+    {
+        if (Multiplayer.IsServer()) Rpc(MethodName.ApplyEdit, point, radius, fill);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ApplyEdit(Vector3 point, float radius, bool fill) => Edit(point, radius, fill);
     private void Edit(Vector3 worldPoint, float radius, bool fill)
     {
         foreach (VoxelChunk chunk in _chunks.Values)
