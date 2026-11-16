@@ -15,6 +15,14 @@
 [ext_resource type="Resource" uid="uid://cbek4a6ce44r7" path="res://modifiers/test_earth_height.tres" id="13_32hag"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/game_menu.tscn" id="15_32hag"]
+[ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="15_s7qer"]
+[ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="16_g4c7l"]
+[ext_resource type="Resource" uid="uid://ck5ej4okoq8m1" path="res://skills/earth_seismic.tres" id="17_knn7v"]
+[ext_resource type="Resource" uid="uid://bibwxa5mti5sw" path="res://skills/earth_towering.tres" id="18_7pqkx"]
+[ext_resource type="Resource" uid="uid://1rjnx77lv8if" path="res://skills/fire_kindling.tres" id="19_uw77l"]
+[ext_resource type="Resource" uid="uid://il7jv6458y01" path="res://skills/fire_tempered.tres" id="20_rptt4"]
+[ext_resource type="Resource" uid="uid://cqei3538a5qfm" path="res://skills/fire_volatile.tres" id="21_r7pn3"]
+[ext_resource type="Resource" uid="uid://vertftpioamy" path="res://skills/fusion_molten.tres" id="22_b8hi5"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -28,6 +36,22 @@ radius = 0.2
 [node name="player" type="CharacterBody3D" unique_id=1834096749]
 collision_layer = 3
 script = ExtResource("1_rkbax")
+MaxGroundSpeed = null
+GroundAccel = null
+Friction = null
+StopSpeed = null
+AimSpeedMult = null
+AirAccel = null
+AirWishSpeedCap = null
+MaxAirSpeed = null
+AirSteer = null
+AirMoveSpeed = null
+AirMoveAccel = null
+JumpVelocity = null
+JumpBuffer = null
+CoyoteTime = null
+HopSpeedRetention = null
+TurnSpeed = null
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=689808290]
 shape = SubResource("CapsuleShape3D_g4v7s")
@@ -47,6 +71,16 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -0.8)
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1932564801]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 script = ExtResource("2_g1dw6")
+MouseSensitivity = null
+ShoulderOffset = null
+ShoulderSwitchSpeed = null
+CameraDistance = null
+AimCameraDistance = null
+ZoomSpeed = null
+CameraMargin = null
+FirstPersonHeight = null
+ThirdPersonFov = null
+FirstPersonFov = null
 
 [node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot" unique_id=916567558]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, 0)
@@ -99,9 +133,14 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_boad6")
 Caster = NodePath("../../Spellcaster")
+Radius = null
+InnerRadius = null
+Deadzone = null
+CursorSensitivity = null
 
 [node name="Health" type="Node" parent="." unique_id=1134940123]
 script = ExtResource("3_g1dw6")
+MaxHealth = null
 
 [node name="Spellcaster" type="Node" parent="." unique_id=1953736732]
 script = ExtResource("4_g6k8r")
@@ -113,6 +152,7 @@ DebugModifiers = Array[ExtResource("10_yllr7")]([ExtResource("11_kb6p2"), ExtRes
 
 [node name="SkillTree" type="Node" parent="." unique_id=196627311]
 script = ExtResource("14_wodsf")
+Nodes = Array[ExtResource("15_s7qer")]([ExtResource("16_g4c7l"), ExtResource("17_knn7v"), ExtResource("18_7pqkx"), ExtResource("19_uw77l"), ExtResource("20_rptt4"), ExtResource("21_r7pn3"), ExtResource("22_b8hi5")])
 
 [node name="GameMenu" parent="." unique_id=187448465 node_paths=PackedStringArray("SkillTree") instance=ExtResource("15_32hag")]
 SkillTree = NodePath("../SkillTree")
