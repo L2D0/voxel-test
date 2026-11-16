@@ -1,0 +1,66 @@
+[gd_scene format=3 uid="uid://v7wt7fu0rrhb"]
+
+[ext_resource type="Script" uid="uid://cec81aqw8d1fh" path="res://ui/SkillTreeView.cs" id="1_3ptas"]
+
+[node name="GameMenu" type="CanvasLayer" unique_id=187448465]
+
+[node name="Dim" type="ColorRect" parent="." unique_id=524635199]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.49019608)
+
+[node name="Hub" type="CenterContainer" parent="." unique_id=765082988]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Hbox" type="HBoxContainer" parent="Hub" unique_id=257736020]
+layout_mode = 2
+theme_override_constants/separation = 60
+
+[node name="PhysicalButton" type="Button" parent="Hub/Hbox" unique_id=1713183131]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 80)
+layout_mode = 2
+text = "WIP"
+
+[node name="MagicButton" type="Button" parent="Hub/Hbox" unique_id=1727625566]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 80)
+layout_mode = 2
+text = "Magic"
+
+[node name="InveentoryButton" type="Button" parent="Hub/Hbox" unique_id=745644333]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 80)
+layout_mode = 2
+text = "WIP"
+
+[node name="MagicPage" type="Control" parent="." unique_id=1511905542]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_3ptas")
+
+[node name="WipPage" type="CenterContainer" parent="." unique_id=190096041]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="WipPage" unique_id=1763886873]
+layout_mode = 2
+text = "Work In Progress "

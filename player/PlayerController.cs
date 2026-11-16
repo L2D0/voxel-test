@@ -33,6 +33,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     public bool IsAiming { get; private set; }
 
+    public SkillTree Skills { get; private set; }
+
     private PlayerCamera _camera;
     private Node3D _model;
     private Marker3D _castPoint;
@@ -49,6 +51,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     public override void _Ready()
     {
+        Skills = GetNodeOrNull<SkillTree>("SkillTree");
         _camera = GetNode<PlayerCamera>("CameraPivot");
         _model = GetNode<Node3D>("Model");
         _castPoint = GetNode<Marker3D>("Model/CastPoint");

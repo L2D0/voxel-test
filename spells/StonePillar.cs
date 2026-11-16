@@ -14,6 +14,8 @@ public partial class StonePillar : AnimatableBody3D
     // Stats are locked in at cast time
     private float _maxHeight, _minHeight, _riseSpeed, _windup, _lifetime, _warningTime, _radius, _ringHeight;
 
+    private const uint CharacterLayer = 1u << 1;
+
     private State _state = State.Windup;
     private float _timer;
     private float _risen;
@@ -21,6 +23,24 @@ public partial class StonePillar : AnimatableBody3D
     private readonly List<MeshInstance3D> _rings = new();
     private readonly List<CollisionShape3D> _shapes = new();
     private readonly RandomNumberGenerator _rng = new();
+
+    private void SeismicBurst()
+    {
+        var query = new PhysicsShapeQueryParameters3D
+        {
+            Shape = new SphereShape3D { Radius = 4f },
+            Transform = new Transform3D(Basis.Identity, GlobalPosition - Axis * (_risen / 2f)),
+            CollisionMask = CharacterLayer,
+        };
+
+        var hits = new HashSet<Node>();
+        foreach (var result in GetWorld3D().DirectSpaceState.IntersectShape(query, 32))
+        {
+            var body = result["collider"].As<Node>();
+            if (body == null || body == Ctx.Caster || !hits.Add(body)) continue;
+            Health.Of(body)?.TakeDamage(25f, Ctx.Caster);
+        }
+    }
 
     public override void _Ready()
     {
@@ -138,6 +158,8 @@ public partial class StonePillar : AnimatableBody3D
     {
         if (_state == State.Crumbling) return;
         _state = State.Crumbling;
+
+        if (Ctx.HasFlag("SeismicCrumble")) SeismicBurst();
 
         foreach (CollisionShape3D shape in _shapes)
             shape.SetDeferred(CollisionShape3D.PropertyName.Disabled, true);

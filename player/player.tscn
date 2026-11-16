@@ -13,6 +13,8 @@
 [ext_resource type="Resource" uid="uid://bqly48vpm1o77" path="res://modifiers/test_heatburst_charges.tres" id="11_kb6p2"]
 [ext_resource type="Resource" uid="uid://h7gy8lded6vk" path="res://modifiers/test_fast_recharge.tres" id="12_wodsf"]
 [ext_resource type="Resource" uid="uid://cbek4a6ce44r7" path="res://modifiers/test_earth_height.tres" id="13_32hag"]
+[ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
+[ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/game_menu.tscn" id="15_32hag"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -108,3 +110,8 @@ Spells = Array[ExtResource("5_boad6")]([ExtResource("6_rgyib"), ExtResource("8_r
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")
 DebugModifiers = Array[ExtResource("10_yllr7")]([ExtResource("11_kb6p2"), ExtResource("12_wodsf"), ExtResource("13_32hag")])
+
+[node name="SkillTree" type="Node" parent="." unique_id=196627311]
+script = ExtResource("14_wodsf")
+
+[node name="GameMenu" parent="." unique_id=187448465 instance=ExtResource("15_32hag")]

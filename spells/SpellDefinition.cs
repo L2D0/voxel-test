@@ -43,4 +43,5 @@ public class SpellContext
 
     // The effective value of a stat for this cast: base value plus every active modifier
     public float Stat(string name) => Mods != null ? Mods.Get(Spell, name) : Spell.Get(name).AsSingle();
+    public bool HasFlag(string flag) => Caster?.Skills != null && Caster.Skills.HasFlag(flag);
 }
