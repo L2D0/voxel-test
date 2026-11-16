@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatModifier" format=3 uid="uid://cbek4a6ce44r7"]
+
+[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="1_40ofj"]
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_uj2an"]
+
+[resource]
+script = ExtResource("1_uj2an")
+Scope = 1
+Element = 10
+Spell = ExtResource("1_40ofj")
+Stat = "MaxHeight"
+Op = 1
+Value = 0.5
+metadata/_custom_type_script = "uid://bb6d7upji3aff"

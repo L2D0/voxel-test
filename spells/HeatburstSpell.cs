@@ -14,15 +14,14 @@ public partial class HeatburstSpell : SpellDefinition
     [Export] public float Damage = 30f;
     [Export] public float Knockback = 8f;
     [Export] public float SelfKnockback = 11f;
-    [Export] public float SelfUpwardBias = 0.6f;   // tilts self-knockback upward so you always leave the ground
+    [Export] public float SelfUpwardBias = 0.6f;
     [Export(PropertyHint.Range, "0,1")] public float SelfDamageMultiplier = 0.35f;
-    [Export(PropertyHint.Range, "0,1")] public float MinFalloff = 0.3f;   // strength at the very edge of the radius
+    [Export(PropertyHint.Range, "0,1")] public float MinFalloff = 0.3f;
 
     public override bool Begin(SpellContext ctx)
     {
         var projectile = ProjectileScene.Instantiate<HeatburstProjectile>();
-        projectile.Spell = this;
-        projectile.Caster = ctx.Caster;
+        projectile.Ctx = ctx;
         projectile.Direction = ctx.AimDirection;
 
         ctx.Caster.GetTree().CurrentScene.AddChild(projectile);

@@ -124,7 +124,7 @@ public partial class SpellWheel : Control
             DrawColoredPolygon(points.ToArray(), color);
 
             // Charge arc along the outer edge (DrawArc measures from +X, so shift by -90°)
-            float fill = Caster.ChargesOf(i) / spell.MaxCharges;
+            float fill = Caster.ChargesOf(i) / Caster.MaxChargesOf(i);
             if (fill > 0f)
                 DrawArc(center, Radius + 7f, a0 - Mathf.Pi / 2f, Mathf.Lerp(a0, a1, fill) - Mathf.Pi / 2f, arcSteps, ChargeColor, 4f);
 

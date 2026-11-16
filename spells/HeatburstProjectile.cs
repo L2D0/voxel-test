@@ -5,12 +5,30 @@ public partial class HeatburstProjectile : Node3D
 {
     private const uint DamageableMask = (1u << 1) | (1u << 2);   // Characters + Structures
 
-    public HeatburstSpell Spell;
-    public PlayerController Caster;
+    public SpellContext Ctx;
     public Vector3 Direction;
+
+    private PlayerController Caster => Ctx.Caster;
+
+    // Stats are locked in at cast time
+    private float _speed, _lifetime, _radius, _damage, _knockback;
+    private float _selfKnockback, _selfUpwardBias, _selfDamageMult, _minFalloff;
 
     private float _age;
     private bool _exploded;
+
+    public override void _Ready()
+    {
+        _speed = Ctx.Stat(nameof(HeatburstSpell.ProjectileSpeed));
+        _lifetime = Ctx.Stat(nameof(HeatburstSpell.Lifetime));
+        _radius = Ctx.Stat(nameof(HeatburstSpell.Radius));
+        _damage = Ctx.Stat(nameof(HeatburstSpell.Damage));
+        _knockback = Ctx.Stat(nameof(HeatburstSpell.Knockback));
+        _selfKnockback = Ctx.Stat(nameof(HeatburstSpell.SelfKnockback));
+        _selfUpwardBias = Ctx.Stat(nameof(HeatburstSpell.SelfUpwardBias));
+        _selfDamageMult = Ctx.Stat(nameof(HeatburstSpell.SelfDamageMultiplier));
+        _minFalloff = Ctx.Stat(nameof(HeatburstSpell.MinFalloff));
+    }
 
     public override void _PhysicsProcess(double delta)
     {
@@ -19,7 +37,7 @@ public partial class HeatburstProjectile : Node3D
 
         // Raycast along this tick's movement so fast projectiles can't tunnel through thin surfaces
         Vector3 from = GlobalPosition;
-        Vector3 to = from + Direction * Spell.ProjectileSpeed * dt;
+        Vector3 to = from + Direction * _speed * dt;
 
         var query = PhysicsRayQueryParameters3D.Create(from, to);
         query.Exclude = new Godot.Collections.Array<Rid> { Caster.GetRid() };
@@ -33,17 +51,16 @@ public partial class HeatburstProjectile : Node3D
 
         GlobalPosition = to;
         _age += dt;
-        if (_age >= Spell.Lifetime) Explode(GlobalPosition);
+        if (_age >= _lifetime) Explode(GlobalPosition);
     }
 
     private void Explode(Vector3 center)
     {
         _exploded = true;
 
-        // Only look for characters and structures, never terrain
         var shapeQuery = new PhysicsShapeQueryParameters3D
         {
-            Shape = new SphereShape3D { Radius = Spell.Radius },
+            Shape = new SphereShape3D { Radius = _radius },
             Transform = new Transform3D(Basis.Identity, center),
             CollisionMask = DamageableMask,
         };
@@ -60,9 +77,9 @@ public partial class HeatburstProjectile : Node3D
             float falloff = Falloff(distance);
             Vector3 pushDir = distance > 0.01f ? offset / distance : Vector3.Up;
 
-            Health.Of(body)?.TakeDamage(Spell.Damage * falloff, Caster);
+            Health.Of(body)?.TakeDamage(_damage * falloff, Caster);
             if (body is IImpulseReceiver receiver)
-                receiver.AddImpulse(pushDir * Spell.Knockback * falloff);
+                receiver.AddImpulse(pushDir * _knockback * falloff);
         }
 
         ApplySelfHit(center);
@@ -72,7 +89,6 @@ public partial class HeatburstProjectile : Node3D
 
     private void ApplySelfHit(Vector3 center)
     {
-        // Measure to the closest point on the caster's capsule, not its centre
         var capsule = Caster.GetNode<CollisionShape3D>("CollisionShape3D").Shape as CapsuleShape3D;
         float radius = capsule?.Radius ?? 0.5f;
         float halfSegment = (capsule?.Height ?? 2f) / 2f - radius;
@@ -81,19 +97,19 @@ public partial class HeatburstProjectile : Node3D
         Vector3 closest = Geometry3D.GetClosestPointToSegment(center, p + Vector3.Down * halfSegment, p + Vector3.Up * halfSegment);
 
         float distance = Mathf.Max(center.DistanceTo(closest) - radius, 0f);
-        if (distance > Spell.Radius) return;
+        if (distance > _radius) return;
 
         float falloff = Falloff(distance);
         Vector3 offset = closest - center;
         Vector3 pushDir = offset.LengthSquared() > 0.0001f ? offset.Normalized() : Vector3.Up;
-        pushDir = (pushDir + Vector3.Up * Spell.SelfUpwardBias).Normalized();
+        pushDir = (pushDir + Vector3.Up * _selfUpwardBias).Normalized();
 
-        Health.Of(Caster)?.TakeDamage(Spell.Damage * falloff * Spell.SelfDamageMultiplier, Caster);
-        Caster.AddImpulse(pushDir * Spell.SelfKnockback * falloff);
+        Health.Of(Caster)?.TakeDamage(_damage * falloff * _selfDamageMult, Caster);
+        Caster.AddImpulse(pushDir * _selfKnockback * falloff);
     }
 
     private float Falloff(float distance) =>
-        Mathf.Lerp(1f, Spell.MinFalloff, Mathf.Clamp(distance / Spell.Radius, 0f, 1f));
+        Mathf.Lerp(1f, _minFalloff, Mathf.Clamp(distance / _radius, 0f, 1f));
 
     private void SpawnFlash(Vector3 center)
     {
@@ -113,7 +129,7 @@ public partial class HeatburstProjectile : Node3D
         flash.Scale = Vector3.One * 0.2f;
 
         Tween tween = flash.CreateTween().SetParallel();
-        tween.TweenProperty(flash, "scale", Vector3.One * Spell.Radius, 0.18);
+        tween.TweenProperty(flash, "scale", Vector3.One * _radius, 0.18);
         tween.TweenProperty(material, "albedo_color:a", 0f, 0.25);
         tween.Chain().TweenCallback(Callable.From(flash.QueueFree));
     }

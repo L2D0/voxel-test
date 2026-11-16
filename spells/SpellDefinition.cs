@@ -29,6 +29,9 @@ public partial class SpellDefinition : Resource
 public class SpellContext
 {
     public PlayerController Caster;
+    public SpellDefinition Spell;
+    public ModifierStack Mods;
+
     public Vector3 CastOrigin;
     public Vector3 AimPoint;
     public Vector3 AimNormal;
@@ -36,5 +39,8 @@ public class SpellContext
     public GodotObject AimCollider;
     public bool AimHit;
     public float HeldTime;
-    public Node3D Instance;   // anything the spell spawns and needs to keep track of (preview, pillar)
+    public Node3D Instance;
+
+    // The effective value of a stat for this cast: base value plus every active modifier
+    public float Stat(string name) => Mods != null ? Mods.Get(Spell, name) : Spell.Get(name).AsSingle();
 }

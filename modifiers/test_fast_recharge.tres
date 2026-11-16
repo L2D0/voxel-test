@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StatModifier" format=3 uid="uid://h7gy8lded6vk"]
+
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_ftei3"]
+
+[resource]
+script = ExtResource("1_ftei3")
+Scope = 0
+Stat = "RechargeTime"
+Op = 2
+Value = 0.5
+metadata/_custom_type_script = "uid://bb6d7upji3aff"

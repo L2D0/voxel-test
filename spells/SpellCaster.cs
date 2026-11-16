@@ -8,6 +8,7 @@ public partial class SpellCaster : Node
     public SpellDefinition ActiveSpell => Spells.Count > 0 ? Spells[ActiveIndex] : null;
 
     private PlayerController _player;
+    private ModifierStack _mods;
     private Label _spellLabel;
     private float[] _charges;
 
@@ -21,13 +22,13 @@ public partial class SpellCaster : Node
     public override void _Ready()
     {
         _player = GetParent<PlayerController>();
+        _mods = _player.GetNode<ModifierStack>("Modifiers");
         _spellLabel = GetNodeOrNull<Label>("%SpellLabel");
 
         _charges = new float[Spells.Count];
         for (int i = 0; i < Spells.Count; i++)
-            _charges[i] = Spells[i].MaxCharges;
+            _charges[i] = MaxChargesOf(i);
 
-        // Faint dome showing the active spell's range (seen from the inside)
         _rangeBubble = new MeshInstance3D
         {
             Mesh = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 48, Rings = 24 },
@@ -43,7 +44,27 @@ public partial class SpellCaster : Node
         AddChild(_rangeBubble);
     }
 
+    // ---------- Stats ----------
+
+    public float Stat(SpellDefinition spell, string stat) => _mods.Get(spell, stat);
+
+    public int MaxChargesOf(int index) =>
+        Mathf.Max(1, Mathf.RoundToInt(Stat(Spells[index], nameof(SpellDefinition.MaxCharges))));
+
+    private float RechargeTimeOf(int index) =>
+        Mathf.Max(0.05f, Stat(Spells[index], nameof(SpellDefinition.RechargeTime)));
+
     public float ChargesOf(int index) => _charges[index];
+
+    private SpellContext BuildContext(SpellDefinition spell)
+    {
+        SpellContext ctx = _player.BuildSpellContext();
+        ctx.Spell = spell;
+        ctx.Mods = _mods;
+        return ctx;
+    }
+
+    // ---------- Selection ----------
 
     public void SelectSpell(int index)
     {
@@ -57,8 +78,11 @@ public partial class SpellCaster : Node
         float dt = (float)delta;
 
         for (int i = 0; i < Spells.Count; i++)
-            if (_charges[i] < Spells[i].MaxCharges)
-                _charges[i] = Mathf.Min(_charges[i] + dt / Spells[i].RechargeTime, Spells[i].MaxCharges);
+        {
+            int max = MaxChargesOf(i);
+            if (_charges[i] > max) _charges[i] = max;   // a modifier was removed
+            else if (_charges[i] < max) _charges[i] = Mathf.Min(_charges[i] + dt / RechargeTimeOf(i), max);
+        }
 
         if (_holding != null)
         {
@@ -69,14 +93,13 @@ public partial class SpellCaster : Node
         UpdatePreview();
 
         if (_spellLabel != null && ActiveSpell != null)
-            _spellLabel.Text = $"{ActiveSpell.SpellName}  {_charges[ActiveIndex]:0.0} / {ActiveSpell.MaxCharges}";
+            _spellLabel.Text = $"{ActiveSpell.SpellName}  {_charges[ActiveIndex]:0.0} / {MaxChargesOf(ActiveIndex)}";
     }
 
     private void UpdatePreview()
     {
         SpellDefinition spell = ActiveSpell;
 
-        // Switched spells: throw away the old preview
         if (_previewSpell != spell)
         {
             _preview?.QueueFree();
@@ -98,7 +121,7 @@ public partial class SpellCaster : Node
             if (_preview != null) AddChild(_preview);
         }
 
-        SpellContext ctx = _player.BuildSpellContext();
+        SpellContext ctx = BuildContext(spell);
         bool valid = spell.IsTargetValid(ctx);
 
         if (_preview != null)
@@ -107,13 +130,16 @@ public partial class SpellCaster : Node
             spell.UpdatePreview(_preview, ctx, valid);
         }
 
-        _rangeBubble.Visible = spell.Range > 0f;
+        float range = ctx.Stat(nameof(SpellDefinition.Range));
+        _rangeBubble.Visible = range > 0f;
         if (_rangeBubble.Visible)
         {
             _rangeBubble.GlobalPosition = _player.GlobalPosition;
-            _rangeBubble.Scale = Vector3.One * spell.Range;
+            _rangeBubble.Scale = Vector3.One * range;
         }
     }
+
+    // ---------- Casting ----------
 
     public override void _UnhandledInput(InputEvent e)
     {
@@ -128,7 +154,7 @@ public partial class SpellCaster : Node
         SpellDefinition spell = ActiveSpell;
         if (spell == null || _holding != null || _charges[ActiveIndex] < 1f) return;
 
-        SpellContext ctx = _player.BuildSpellContext();
+        SpellContext ctx = BuildContext(spell);
         if (!spell.Begin(ctx)) return;   // invalid target, nothing spent
 
         if (spell.Mode == CastMode.Instant)

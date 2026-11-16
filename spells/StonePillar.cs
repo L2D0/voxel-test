@@ -6,10 +6,13 @@ public partial class StonePillar : AnimatableBody3D
     private const uint WorldLayer = 1u << 0;
     private const uint StructureLayer = 1u << 2;
 
-    public StonePillarSpell Spell;
+    public SpellContext Ctx;
     public Vector3 Axis = Vector3.Up;
 
     private enum State { Windup, Rising, Standing, Crumbling }
+
+    // Stats are locked in at cast time
+    private float _maxHeight, _minHeight, _riseSpeed, _windup, _lifetime, _warningTime, _radius, _ringHeight;
 
     private State _state = State.Windup;
     private float _timer;
@@ -21,11 +24,20 @@ public partial class StonePillar : AnimatableBody3D
 
     public override void _Ready()
     {
+        _maxHeight = Ctx.Stat(nameof(StonePillarSpell.MaxHeight));
+        _minHeight = Ctx.Stat(nameof(StonePillarSpell.MinHeight));
+        _riseSpeed = Ctx.Stat(nameof(StonePillarSpell.RiseSpeed));
+        _windup = Ctx.Stat(nameof(StonePillarSpell.Windup));
+        _lifetime = Ctx.Stat(nameof(StonePillarSpell.Lifetime));
+        _warningTime = Ctx.Stat(nameof(StonePillarSpell.WarningTime));
+        _radius = Ctx.Stat(nameof(StonePillarSpell.PillarRadius));
+        _ringHeight = Ctx.Stat(nameof(StonePillarSpell.RingHeight));
+
         CollisionLayer = WorldLayer | StructureLayer;
         CollisionMask = 0;
         _rng.Randomize();
 
-        var health = new Health { Name = "Health", MaxHealth = Spell.MaxHealth };
+        var health = new Health { Name = "Health", MaxHealth = Ctx.Stat(nameof(StonePillarSpell.MaxHealth)) };
         AddChild(health);
         health.Died += source => Crumble();
 
@@ -36,13 +48,12 @@ public partial class StonePillar : AnimatableBody3D
     public void StopRising() => _released = true;
 
     // Ring 0 is the top; each new ring is stacked underneath
-    private Vector3 RingBasePosition(int i) => new Vector3(0, -(i + 0.5f) * Spell.RingHeight, 0);
+    private Vector3 RingBasePosition(int i) => new Vector3(0, -(i + 0.5f) * _ringHeight, 0);
 
     private void AddRing()
     {
         int i = _rings.Count;
-        float h = Spell.RingHeight;
-        float r = Spell.PillarRadius * _rng.RandfRange(0.85f, 1.1f);
+        float r = _radius * _rng.RandfRange(0.85f, 1.1f);
 
         var ring = new MeshInstance3D
         {
@@ -50,7 +61,7 @@ public partial class StonePillar : AnimatableBody3D
             {
                 TopRadius = r * _rng.RandfRange(0.85f, 1f),
                 BottomRadius = r,
-                Height = h,
+                Height = _ringHeight,
                 RadialSegments = 7,
                 Rings = 1,
             },
@@ -66,7 +77,7 @@ public partial class StonePillar : AnimatableBody3D
 
         var shape = new CollisionShape3D
         {
-            Shape = new CylinderShape3D { Radius = r, Height = h },
+            Shape = new CylinderShape3D { Radius = r, Height = _ringHeight },
             Position = RingBasePosition(i),
         };
         AddChild(shape);
@@ -81,7 +92,7 @@ public partial class StonePillar : AnimatableBody3D
         switch (_state)
         {
             case State.Windup:
-                if (_timer >= Spell.Windup)
+                if (_timer >= _windup)
                 {
                     _state = State.Rising;
                     _timer = 0f;
@@ -89,7 +100,7 @@ public partial class StonePillar : AnimatableBody3D
                 break;
 
             case State.Rising:
-                bool done = (_released && _risen >= Spell.MinHeight) || _risen >= Spell.MaxHeight;
+                bool done = (_released && _risen >= _minHeight) || _risen >= _maxHeight;
                 if (done)
                 {
                     _state = State.Standing;
@@ -98,25 +109,23 @@ public partial class StonePillar : AnimatableBody3D
                     break;
                 }
 
-                float step = Mathf.Min(Spell.RiseSpeed * dt, Spell.MaxHeight - _risen);
+                float step = Mathf.Min(_riseSpeed * dt, _maxHeight - _risen);
                 _risen += step;
-                GlobalPosition += Axis * step;   // AnimatableBody carries anything standing on it
-                Shake(0.15f);                    // heavy grinding judder
+                GlobalPosition += Axis * step;
+                Shake(0.15f);
 
-                // Keep roughly one ring below the surface as it climbs
-                while (_rings.Count * Spell.RingHeight < _risen + Spell.RingHeight * 1.5f)
+                while (_rings.Count * _ringHeight < _risen + _ringHeight * 1.5f)
                     AddRing();
                 break;
 
             case State.Standing:
-                float remaining = Spell.Lifetime - _timer;
-                Shake(remaining < Spell.WarningTime ? 1f - remaining / Spell.WarningTime : 0f);
+                float remaining = _lifetime - _timer;
+                Shake(remaining < _warningTime ? 1f - remaining / _warningTime : 0f);
                 if (remaining <= 0f) Crumble();
                 break;
         }
     }
 
-    // Visual only: jitters ring meshes, never the collision
     private void Shake(float intensity)
     {
         float amount = 0.06f * intensity;
