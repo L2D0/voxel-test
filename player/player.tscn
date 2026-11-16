@@ -9,6 +9,10 @@
 [ext_resource type="Resource" uid="uid://cuad0dnq8qlkb" path="res://spells/heatburst.tres" id="6_rgyib"]
 [ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="8_rgyib"]
 [ext_resource type="Script" uid="uid://cwxstgp1ttpln" path="res://spells/ModifierStack.cs" id="9_hg6s5"]
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="10_yllr7"]
+[ext_resource type="Resource" uid="uid://bqly48vpm1o77" path="res://modifiers/test_heatburst_charges.tres" id="11_kb6p2"]
+[ext_resource type="Resource" uid="uid://h7gy8lded6vk" path="res://modifiers/test_fast_recharge.tres" id="12_wodsf"]
+[ext_resource type="Resource" uid="uid://cbek4a6ce44r7" path="res://modifiers/test_earth_height.tres" id="13_32hag"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -103,3 +107,4 @@ Spells = Array[ExtResource("5_boad6")]([ExtResource("6_rgyib"), ExtResource("8_r
 
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")
+DebugModifiers = Array[ExtResource("10_yllr7")]([ExtResource("11_kb6p2"), ExtResource("12_wodsf"), ExtResource("13_32hag")])
