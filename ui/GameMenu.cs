@@ -31,6 +31,7 @@ public partial class GameMenu : CanvasLayer
         {
             if (_page == Page.Closed)
             {
+                if (!GameState.MenuOpen) Open();
             }
             else
             {
@@ -49,13 +50,14 @@ public partial class GameMenu : CanvasLayer
 
     private void Open()
     {
-        ShowPage(Page.Hub);
+        ShowPage(Page.Hub); 
+        GameState.MenuOpen = true;
         Input.MouseMode = Input.MouseModeEnum.Visible;
     }
 
     private void Close()
     {
-        ShowPage(Page.Closed);
+        ShowPage(Page.Closed); GameState.MenuOpen = false;
         Input.MouseMode = Input.MouseModeEnum.Captured;
     }
 
