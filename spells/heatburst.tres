@@ -17,4 +17,5 @@ SpellName = "Heatburst"
 Element = 1
 RechargeTime = 1.2
 AppliesStatuses = Array[ExtResource("1_gp83s")]([ExtResource("2_g17bv"), ExtResource("3_yna13")])
+Cost = 15.0
 metadata/_custom_type_script = "uid://bmhtak708x82c"

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ng7um6pv7siq" path="res://player/PlayerController.cs" id="1_rkbax"]
 [ext_resource type="Script" uid="uid://b0h4o0t807qr4" path="res://player/PlayerCamera.cs" id="2_g1dw6"]
+[ext_resource type="Script" uid="uid://cdvmtwhbu5alc" path="res://ui/HUD.cs" id="3_7pqkx"]
 [ext_resource type="Script" uid="uid://v0rtdhgt84yb" path="res://ui/SpellWheel.cs" id="3_boad6"]
 [ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="3_g1dw6"]
 [ext_resource type="Script" uid="uid://byi3gqgl3qul8" path="res://spells/SpellCaster.cs" id="4_g6k8r"]
@@ -24,6 +25,7 @@
 [ext_resource type="Resource" uid="uid://cqei3538a5qfm" path="res://skills/fire_volatile.tres" id="21_r7pn3"]
 [ext_resource type="Resource" uid="uid://vertftpioamy" path="res://skills/fusion_molten.tres" id="22_b8hi5"]
 [ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
+[ext_resource type="Script" uid="uid://cn67b2tnva6jk" path="res://combat/Mana.cs" id="26_uw77l"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -82,33 +84,21 @@ target_position = Vector3(0, 0, -100)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=357812548]
 
-[node name="CenterContainer" type="CenterContainer" parent="CanvasLayer" unique_id=1821943544]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="CanvasLayer/CenterContainer" unique_id=360699337]
-layout_mode = 2
-text = "+"
-
 [node name="SpeedLabel" type="Label" parent="CanvasLayer" unique_id=1024237952]
 unique_name_in_owner = true
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -23.0
 offset_right = 40.0
-offset_bottom = 23.0
+grow_vertical = 0
 
-[node name="SpellLabel" type="Label" parent="CanvasLayer" unique_id=1022916779]
-unique_name_in_owner = true
+[node name="HUD" type="Control" parent="CanvasLayer" unique_id=376414383]
+layout_mode = 3
+anchors_preset = 0
 offset_right = 40.0
-offset_bottom = 23.0
-
-[node name="HealthLabel" type="Label" parent="CanvasLayer" unique_id=1175304767]
-unique_name_in_owner = true
-offset_top = 14.0
-offset_right = 40.0
-offset_bottom = 37.0
+offset_bottom = 40.0
+script = ExtResource("3_7pqkx")
 
 [node name="SpellWheel" type="Control" parent="CanvasLayer" unique_id=729417750 node_paths=PackedStringArray("Caster")]
 layout_mode = 3
@@ -143,3 +133,6 @@ replication_config = SubResource("SceneReplicationConfig_s7qer")
 
 [node name="Statuses" type="Node" parent="." unique_id=822359449]
 script = ExtResource("24_g4c7l")
+
+[node name="Mana" type="Node" parent="." unique_id=561457096]
+script = ExtResource("26_uw77l")

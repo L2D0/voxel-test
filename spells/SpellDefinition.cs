@@ -1,6 +1,7 @@
 using Godot;
 
 public enum CastMode { Instant, Hold }
+public enum CostType { Mana, Health }
 public enum Element { None, Fire, Toxic, Dark, Shock, Wind, Water, Nature, Life, Crystal, Earth }
 
 public partial class SpellDefinition : Resource
@@ -13,6 +14,8 @@ public partial class SpellDefinition : Resource
     [Export] public float RechargeTime = 1f;
     [Export] public float Range = 0f;   // 0 = unlimited, and no range bubble
     [Export] public Godot.Collections.Array<StatusDefinition> AppliesStatuses = new();
+    [Export] public CostType PaysWith = CostType.Mana;
+    [Export] public float Cost = 0f;
 
     public virtual bool IsTargetValid(SpellContext ctx) => true;
 

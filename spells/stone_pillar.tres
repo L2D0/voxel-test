@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="StonePillarSpell" format=3 uid="uid://clvjdww7l5nhk"]
 
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_b3uxq"]
 [ext_resource type="Script" uid="uid://ddwv8vnx4legx" path="res://spells/StonePillarSpell.cs" id="1_c4s3l"]
 
 [resource]
@@ -10,4 +11,5 @@ PillarRadius = 1.5
 SpellName = "Stone Pillar"
 Element = 10
 RechargeTime = 4.0
+Cost = 20.0
 metadata/_custom_type_script = "uid://ddwv8vnx4legx"

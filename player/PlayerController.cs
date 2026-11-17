@@ -33,13 +33,13 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     public bool IsAiming { get; private set; }
     public SkillTree Skills { get; private set; }
+    public bool MenuOpen => GameState.MenuOpen;
 
     private PlayerCamera _camera;
     private Node3D _model;
     private Marker3D _castPoint;
     private RayCast3D _aimRay;
     private Label _speedLabel;
-    private Label _healthLabel;
     private Health _health;
 
     private Vector3 _spawnPoint;
@@ -62,21 +62,18 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _castPoint = GetNode<Marker3D>("Model/CastPoint");
         _aimRay = GetNode<RayCast3D>("CameraPivot/SpringArm3D/Camera3D/AimRay");
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
-        _healthLabel = GetNodeOrNull<Label>("%HealthLabel");
         _health = GetNode<Health>("Health");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
         _aimRay.AddException(this);
         _spawnPoint = GlobalPosition;
 
-        _health.Changed += (current, max) => UpdateHealthLabel();
         _health.Died += OnDied;
-        UpdateHealthLabel();
 
         if (IsMultiplayerAuthority())
         {
-
-            GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").MakeCurrent(); GameState.InGame = true;
+            GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").MakeCurrent();
+            GameState.InGame = true;
             (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this);
         }
         else
@@ -95,7 +92,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _camera.SetProcessUnhandledInput(false);
         GetNode<Camera3D>("CameraPivot/SpringArm3D/Camera3D").Current = false;
 
-        foreach (string path in new[] { "Modifiers", "GameMenu", "CanvasLayer/SpellWheel" })
+        foreach (string path in new[] { "Modifiers", "GameMenu", "CanvasLayer/SpellWheel", "CanvasLayer/HUD" })
         {
             Node node = GetNodeOrNull(path);
             if (node == null) continue;
@@ -108,9 +105,9 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         if (GetNodeOrNull("GameMenu") is CanvasLayer menu) menu.Visible = false;
     }
 
-    public bool MenuOpen => GameState.MenuOpen;
+    // ---------- Knockback ----------
 
-        public void AddImpulse(Vector3 impulse)
+    public void AddImpulse(Vector3 impulse)
     {
         if (IsMultiplayerAuthority()) ApplyImpulse(impulse);
         else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveImpulse, impulse);   // their machine moves them
@@ -130,12 +127,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     }
 
     // ---------- Health ----------
-
-    private void UpdateHealthLabel()
-    {
-        if (_healthLabel != null)
-            _healthLabel.Text = $"HP {_health.Current:0} / {_health.MaxHealth:0}";
-    }
 
     private void OnDied(Node source)
     {
@@ -319,6 +310,9 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     {
         if (MenuOpen) return;
         if (e.IsActionPressed("build")) BuildTerrain();
+
+        // F2: 30 shield for 6 seconds. Host window only, since only the host changes health.
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F2 }) _health.AddShield(this, 30f, 6f);
     }
 
     private void BuildTerrain()

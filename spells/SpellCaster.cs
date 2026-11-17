@@ -10,7 +10,10 @@ public partial class SpellCaster : Node
 
     private PlayerController _player;
     private ModifierStack _mods;
-    private Label _spellLabel;
+    private Mana _mana;
+    private Health _health;
+
+    public event System.Action Casted;   // fired when a cast is paid for; the HUD listens
     private float[] _charges;
 
     // Owner only: the hold-cast this machine's player is currently performing
@@ -29,7 +32,8 @@ public partial class SpellCaster : Node
     {
         _player = GetParent<PlayerController>();
         _mods = _player.GetNode<ModifierStack>("Modifiers");
-        _spellLabel = GetNodeOrNull<Label>("%SpellLabel");
+        _mana = _player.GetNodeOrNull<Mana>("Mana");
+        _health = Health.Of(_player);
 
         _charges = new float[Spells.Count];
         for (int i = 0; i < Spells.Count; i++)
@@ -63,6 +67,21 @@ public partial class SpellCaster : Node
         Mathf.Max(0.05f, Stat(Spells[index], nameof(SpellDefinition.RechargeTime)));
 
     public float ChargesOf(int index) => _charges[index];
+
+    public float CostOf(SpellDefinition spell) =>
+        Mathf.Max(0f, Stat(spell, nameof(SpellDefinition.Cost)));
+
+    // Health costs are always payable: paying more HP than you have kills you
+    private bool CanPay(SpellDefinition spell) =>
+        spell.PaysWith == CostType.Health || _mana == null || _mana.CanAfford(CostOf(spell));
+
+    private void Pay(SpellDefinition spell)
+    {
+        float cost = CostOf(spell);
+        if (spell.PaysWith == CostType.Health) _health?.PayCost(cost);
+        else _mana?.Spend(cost);
+        Casted?.Invoke();
+    }
 
     private SpellContext BuildContext(SpellDefinition spell)
     {
@@ -102,9 +121,6 @@ public partial class SpellCaster : Node
         }
 
         UpdatePreview();
-
-        if (_spellLabel != null && ActiveSpell != null)
-            _spellLabel.Text = $"{ActiveSpell.SpellName}  {_charges[ActiveIndex]:0.0} / {MaxChargesOf(ActiveIndex)}";
     }
 
     private void UpdatePreview()
@@ -163,7 +179,7 @@ public partial class SpellCaster : Node
     private void StartCast()
     {
         SpellDefinition spell = ActiveSpell;
-        if (spell == null || _holdingCastId >= 0 || _charges[ActiveIndex] < 1f) return;
+        if (spell == null || _holdingCastId >= 0 || _charges[ActiveIndex] < 1f || !CanPay(spell)) return;
 
         SpellContext ctx = BuildContext(spell);
         if (!spell.IsTargetValid(ctx)) return;   // validated here, on the machine that can see the target
@@ -174,7 +190,7 @@ public partial class SpellCaster : Node
 
         if (spell.Mode == CastMode.Instant)
         {
-            _charges[ActiveIndex] -= 1f;
+            _charges[ActiveIndex] -= 1f; Pay(spell);
         }
         else
         {
@@ -187,7 +203,7 @@ public partial class SpellCaster : Node
     {
         if (_holdingCastId < 0) return;
 
-        _charges[_holdingIndex] -= 1f;
+        _charges[_holdingIndex] -= 1f; Pay(Spells[_holdingIndex]);
         Rpc(MethodName.ReplicateRelease, _holdingCastId);
         _holdingCastId = -1;
         _holdingIndex = -1;

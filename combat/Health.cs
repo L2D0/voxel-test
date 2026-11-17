@@ -14,10 +14,20 @@ public partial class Health : Node
     [Export] public Resistances Resistances;   // optional: base resistances for this kind of entity
 
     public float Current { get; private set; }
+    public float Shield { get; private set; }   // total temporary HP across every shield
     public bool IsDead => Current <= 0f;
 
     // Resistance from gear and buffs, per instance, tagged with what granted it
     private readonly List<(object Source, DamageType Type, float Amount)> _bonusResistances = new();
+
+    // Host only. Newest last, and the newest takes hits first.
+    private class ShieldLayer
+    {
+        public object Source;
+        public float Amount;
+        public float Remaining;   // 0 = no time limit
+    }
+    private readonly List<ShieldLayer> _shields = new();
 
     public override void _Ready() => Current = MaxHealth;
 
@@ -41,6 +51,64 @@ public partial class Health : Node
         return Mathf.Min(total, MaxResistance);
     }
 
+    // ---------- Shields ----------
+
+    public void AddShield(object source, float amount, float duration = 0f)
+    {
+        if (!Multiplayer.IsServer() || IsDead || amount <= 0f) return;
+
+        _shields.Add(new ShieldLayer { Source = source, Amount = amount, Remaining = duration });
+        Broadcast(Current, 0f, null);
+    }
+
+    public void RemoveShields(object source)
+    {
+        if (!Multiplayer.IsServer()) return;
+        if (_shields.RemoveAll(s => s.Source == source) > 0) Broadcast(Current, 0f, null);
+    }
+
+    // Returns whatever the shields couldn't soak
+    private float Absorb(float amount)
+    {
+        for (int i = _shields.Count - 1; i >= 0 && amount > 0f; i--)
+        {
+            ShieldLayer layer = _shields[i];
+            float taken = Mathf.Min(layer.Amount, amount);
+            layer.Amount -= taken;
+            amount -= taken;
+            if (layer.Amount <= 0f) _shields.RemoveAt(i);
+        }
+        return amount;
+    }
+
+    private float TotalShield()
+    {
+        float total = 0f;
+        foreach (ShieldLayer layer in _shields) total += layer.Amount;
+        return total;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!Multiplayer.IsServer() || _shields.Count == 0) return;
+
+        float dt = (float)delta;
+        bool expired = false;
+        for (int i = _shields.Count - 1; i >= 0; i--)
+        {
+            ShieldLayer layer = _shields[i];
+            if (layer.Remaining <= 0f) continue;   // no time limit
+
+            layer.Remaining -= dt;
+            if (layer.Remaining <= 0f)
+            {
+                _shields.RemoveAt(i);
+                expired = true;
+            }
+        }
+        if (expired) Broadcast(Current, 0f, null);
+    }
+
     // ---------- Damage ----------
 
     // The pipeline. Every hit goes through these steps in this order.
@@ -60,43 +128,70 @@ public partial class Health : Node
         if (!Multiplayer.IsServer() || IsDead || hit == null) return;
 
         float amount = Resolve(hit);
-        float floor = hit.CanKill ? 0f : Mathf.Min(1f, Current);   // non-lethal damage stops at 1 HP
-        float current = Mathf.Max(Current - amount, floor);
-        float dealt = Current - current;
-        if (dealt <= 0f) return;
+        float toHealth = hit.Type == DamageType.Pure ? amount : Absorb(amount);   // 5. shields
+        float absorbed = amount - toHealth;
 
-        ApplyState(current, dealt, hit.Source);
-        Rpc(MethodName.ReceiveState, current, dealt);
+        float floor = hit.CanKill ? 0f : Mathf.Min(1f, Current);   // non-lethal damage stops at 1 HP
+        float current = Mathf.Max(Current - toHealth, floor);
+        float dealt = Current - current;
+        if (dealt <= 0f && absorbed <= 0f) return;
+
+        Broadcast(current, dealt + absorbed, hit.Source);
     }
+
+    // HP spent on casting. The caster's machine asks the host; paid as Pure, so it can kill.
+    public void PayCost(float amount)
+    {
+        if (amount <= 0f) return;
+        if (Multiplayer.IsServer()) TakeCost(amount);
+        else RpcId(1, MethodName.RequestPayCost, amount);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void RequestPayCost(float amount)
+    {
+        if (!Multiplayer.IsServer()) return;
+        if (Multiplayer.GetRemoteSenderId() != GetParent().GetMultiplayerAuthority()) return;   // only pay for yourself
+        TakeCost(amount);
+    }
+
+    private void TakeCost(float amount) =>
+        TakeDamage(new DamageInfo { Amount = amount, Type = DamageType.Pure, Source = GetParent() });
 
     public void Heal(float amount)
     {
         if (!Multiplayer.IsServer() || IsDead || amount <= 0f) return;
-
-        float current = Mathf.Min(Current + amount, MaxHealth);
-        ApplyState(current, 0f, null);
-        Rpc(MethodName.ReceiveState, current, 0f);
+        Broadcast(Mathf.Min(Current + amount, MaxHealth), 0f, null);
     }
 
     public void Reset()
     {
         if (!Multiplayer.IsServer()) return;
+        _shields.Clear();
+        Broadcast(MaxHealth, 0f, null);
+    }
 
-        ApplyState(MaxHealth, 0f, null);
-        Rpc(MethodName.ReceiveState, MaxHealth, 0f);
+    // ---------- Sync ----------
+
+    private void Broadcast(float current, float damage, Node source)
+    {
+        float shield = TotalShield();
+        ApplyState(current, shield, damage, source);
+        Rpc(MethodName.ReceiveState, current, shield, damage);
     }
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReceiveState(float current, float damage)
+    private void ReceiveState(float current, float shield, float damage)
     {
         if (Multiplayer.GetRemoteSenderId() != 1) return;   // only accept the host's word
-        ApplyState(current, damage, null);
+        ApplyState(current, shield, damage, null);
     }
 
-    private void ApplyState(float current, float damage, Node source)
+    private void ApplyState(float current, float shield, float damage, Node source)
     {
         bool wasDead = IsDead;
         Current = current;
+        Shield = shield;
 
         if (damage > 0f) EmitSignal(SignalName.Damaged, damage, source);
         EmitSignal(SignalName.Changed, Current, MaxHealth);
