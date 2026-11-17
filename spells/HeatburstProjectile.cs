@@ -78,7 +78,7 @@ public partial class HeatburstProjectile : Node3D
             Vector3 pushDir = distance > 0.01f ? offset / distance : Vector3.Up;
 
             if (!Ctx.Authoritative) continue;   // only the host decides hits on others
-            Health.Of(body)?.TakeDamage(_damage * falloff, Caster);
+            Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(Ctx, _damage * falloff));
             if (body is IImpulseReceiver receiver)
                 receiver.AddImpulse(pushDir * _knockback * falloff);
         }
@@ -106,7 +106,7 @@ public partial class HeatburstProjectile : Node3D
         pushDir = (pushDir + Vector3.Up * _selfUpwardBias).Normalized();
 
         // The host applies the damage; the caster's own machine applies the launch, so jumps have no lag
-        if (Ctx.Authoritative) Health.Of(Caster)?.TakeDamage(_damage * falloff * _selfDamageMult, Caster);
+        if (Ctx.Authoritative) Health.Of(Caster)?.TakeDamage(DamageInfo.FromSpell(Ctx, _damage * falloff * _selfDamageMult));
         if (Caster.IsMultiplayerAuthority()) Caster.AddImpulse(pushDir * _selfKnockback * falloff);
     }
 

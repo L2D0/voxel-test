@@ -38,7 +38,7 @@ public partial class StonePillar : AnimatableBody3D
         {
             var body = result["collider"].As<Node>();
             if (body == null || body == Ctx.Caster || !hits.Add(body)) continue;
-            Health.Of(body)?.TakeDamage(25f, Ctx.Caster);
+            Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(Ctx, 25f));
         }
     }
 
