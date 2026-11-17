@@ -7,6 +7,7 @@ public partial class TargetDummy : StaticBody3D
     private static readonly Color BaseColor = new Color(0.8f, 0.3f, 0.25f);
 
     private Health _health;
+    private StatusEffects _statuses;
     private Label3D _label;
     private StandardMaterial3D _material;
 
@@ -21,6 +22,8 @@ public partial class TargetDummy : StaticBody3D
         _health.Damaged += OnDamaged;
         _health.Died += OnDied;
         _health.Changed += (current, max) => UpdateLabel();
+        _statuses = StatusEffects.Of(this);
+        if (_statuses != null) _statuses.Changed += UpdateLabel;
         UpdateLabel();
     }
 
@@ -40,5 +43,12 @@ public partial class TargetDummy : StaticBody3D
         GetTree().CreateTimer(RespawnTime).Timeout += () => _health.Reset();
     }
 
-    private void UpdateLabel() => _label.Text = $"{_health.Current:0} / {_health.MaxHealth:0}";
+    private void UpdateLabel()
+    {
+        string text = $"{_health.Current:0} / {_health.MaxHealth:0}";
+        if (_statuses != null)
+            foreach (StatusEffects.Instance s in _statuses.Active)
+                text += $"\n{s.Def.DisplayName} x{s.Stacks}";
+        _label.Text = text;
+    }
 }

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="StatusDefinition" format=3 uid="uid://baaw3mbo6m7f1"]
+
+[ext_resource type="Script" uid="uid://ddrrn4cpr8txy" path="res://combat/DamageAmp.cs" id="1_2bw45"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_76l4n"]
+
+[sub_resource type="Resource" id="Resource_0tl74"]
+script = ExtResource("1_2bw45")
+Type = 11
+PerStack = 0.5
+metadata/_custom_type_script = "uid://ddrrn4cpr8txy"
+
+[resource]
+script = ExtResource("2_76l4n")
+DisplayName = "Brittle"
+Duration = 4.0
+Amplifies = Array[ExtResource("1_2bw45")]([SubResource("Resource_0tl74")])
+metadata/_custom_type_script = "uid://lfrroovsosm1"

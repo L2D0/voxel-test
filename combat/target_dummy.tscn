@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bjdkm1qv4qgfu" path="res://combat/TargetDummy.cs" id="1_hnraw"]
 [ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="1_nhs1n"]
 [ext_resource type="Script" uid="uid://dhfia773go8v3" path="res://combat/Resistances.cs" id="3_w8x2o"]
+[ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="4_m3llq"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_xlbcs"]
 
@@ -31,3 +32,6 @@ Resistances = SubResource("Resource_s7qer")
 [node name="HealthLabel" type="Label3D" parent="." unique_id=1523535077]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 billboard = 1
+
+[node name="Statuses" type="Node" parent="." unique_id=749599094]
+script = ExtResource("4_m3llq")

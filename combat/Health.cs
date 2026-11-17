@@ -48,7 +48,8 @@ public partial class Health : Node
     {
         float amount = hit.Amount;                    // 1. base, already including spell modifiers
         if (hit.Crit) amount *= hit.CritMultiplier;   // 2. weak point
-                                                      // 3. status amplification: added with statuses
+        if (hit.Type != DamageType.Pure)              // 3. status amplification (Wet into Shock and so on)
+            amount *= 1f + (StatusEffects.Of(GetParent())?.AmplificationFor(hit.Type) ?? 0f);
         amount *= 1f - ResistanceTo(hit.Type);        // 4. resistance or vulnerability
         return Mathf.Max(amount, 0f);
     }

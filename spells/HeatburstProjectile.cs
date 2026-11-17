@@ -78,7 +78,7 @@ public partial class HeatburstProjectile : Node3D
             Vector3 pushDir = distance > 0.01f ? offset / distance : Vector3.Up;
 
             if (!Ctx.Authoritative) continue;   // only the host decides hits on others
-            Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(Ctx, _damage * falloff));
+            Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(Ctx, _damage * falloff)); Ctx.ApplyStatuses(body);
             if (body is IImpulseReceiver receiver)
                 receiver.AddImpulse(pushDir * _knockback * falloff);
         }

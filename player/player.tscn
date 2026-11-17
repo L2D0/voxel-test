@@ -23,6 +23,7 @@
 [ext_resource type="Resource" uid="uid://il7jv6458y01" path="res://skills/fire_tempered.tres" id="20_rptt4"]
 [ext_resource type="Resource" uid="uid://cqei3538a5qfm" path="res://skills/fire_volatile.tres" id="21_r7pn3"]
 [ext_resource type="Resource" uid="uid://vertftpioamy" path="res://skills/fusion_molten.tres" id="22_b8hi5"]
+[ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_g4v7s"]
 
@@ -139,3 +140,6 @@ SkillTree = NodePath("../SkillTree")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1469505648]
 replication_config = SubResource("SceneReplicationConfig_s7qer")
+
+[node name="Statuses" type="Node" parent="." unique_id=822359449]
+script = ExtResource("24_g4c7l")

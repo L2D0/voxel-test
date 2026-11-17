@@ -12,6 +12,7 @@ public partial class SpellDefinition : Resource
     [Export] public int MaxCharges = 1;
     [Export] public float RechargeTime = 1f;
     [Export] public float Range = 0f;   // 0 = unlimited, and no range bubble
+    [Export] public Godot.Collections.Array<StatusDefinition> AppliesStatuses = new();
 
     public virtual bool IsTargetValid(SpellContext ctx) => true;
 
@@ -46,4 +47,13 @@ public class SpellContext
     // The effective value of a stat for this cast: base value plus every active modifier
     public float Stat(string name) => Mods != null ? Mods.Get(Spell, name) : Spell.Get(name).AsSingle();
     public bool HasFlag(string flag) => Caster?.Skills != null && Caster.Skills.HasFlag(flag);
+
+    // Applies every status this spell carries to a target, if it can hold statuses
+    public void ApplyStatuses(Node target)
+    {
+        var statuses = StatusEffects.Of(target);
+        if (statuses == null) return;
+        foreach (StatusDefinition status in Spell.AppliesStatuses)
+            if (status != null) statuses.Apply(status, Caster);
+    }
 }

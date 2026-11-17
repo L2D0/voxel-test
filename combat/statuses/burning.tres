@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="StatusDefinition" format=3 uid="uid://uc1g8t10vknc"]
+
+[ext_resource type="Script" uid="uid://ddrrn4cpr8txy" path="res://combat/DamageAmp.cs" id="1_nht67"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_nylal"]
+
+[resource]
+script = ExtResource("2_nylal")
+DisplayName = "Burning"
+MaxStacks = 5
+StackMode = 1
+TickDamagePerStack = 2.0
+TickType = 2
+metadata/_custom_type_script = "uid://lfrroovsosm1"
