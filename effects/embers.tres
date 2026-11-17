@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="GroundEffectDefinition" format=3 uid="uid://dt5fskkgt4181"]
+
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_5sctd"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_gs304"]
+[ext_resource type="Resource" uid="uid://uc1g8t10vknc" path="res://combat/statuses/burning.tres" id="3_gs304"]
+[ext_resource type="Script" uid="uid://brgp0cb1gyvvo" path="res://effects/GroundEffectDefinition.cs" id="3_yei2q"]
+
+[sub_resource type="Resource" id="Resource_kfis5"]
+script = ExtResource("1_5sctd")
+Scope = 1
+Element = 1
+Stat = "Radius"
+Op = 1
+Value = 0.5
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[resource]
+script = ExtResource("3_yei2q")
+Radius = 2.5
+Duration = 4.0
+Damage = 3.0
+DamageType = 2
+EnemyStatuses = Array[ExtResource("2_gs304")]([ExtResource("3_gs304")])
+AllyStatuses = Array[ExtResource("2_gs304")]([null])
+AllyModifiers = Array[ExtResource("1_5sctd")]([SubResource("Resource_kfis5")])
+metadata/_custom_type_script = "uid://brgp0cb1gyvvo"

@@ -67,6 +67,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
         _aimRay.AddException(this); _aimRay.CollisionMask = 1u | (1u << 1) | (1u << 2);   // World, Characters, Structures
         _spawnPoint = GlobalPosition;
+        AddToGroup("players");
 
         _health.Died += OnDied;
 

@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1_c4s3l")
 MaxHeight = 10.0
-RiseSpeed = 5.0
+RiseSpeed = 4.0
 PillarRadius = 1.5
 SpellName = "Stone Pillar"
 Element = 10

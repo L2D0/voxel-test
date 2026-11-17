@@ -84,6 +84,8 @@ public partial class HeatburstProjectile : Node3D
         }
 
         ApplySelfHit(center);
+        if (Ctx.Spell is HeatburstSpell spell && spell.LeavesEffect != null)
+            GroundEffect.Spawn(spell.LeavesEffect, Caster, center);
         SpawnFlash(center);
         QueueFree();
     }

@@ -17,6 +17,8 @@ public partial class HeatburstSpell : SpellDefinition
     [Export] public float SelfUpwardBias = 0.6f;
     [Export(PropertyHint.Range, "0,1")] public float SelfDamageMultiplier = 0.35f;
     [Export(PropertyHint.Range, "0,1")] public float MinFalloff = 0.3f;
+    [ExportGroup("Lingering")]
+    [Export] public GroundEffectDefinition LeavesEffect;   // optional: left behind where it explodes
 
     public override bool Begin(SpellContext ctx)
     {
