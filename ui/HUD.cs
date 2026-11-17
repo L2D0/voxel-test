@@ -1,33 +1,36 @@
 using Godot;
 
 // Dark Souls 2 style layout in a beige minimalist palette. Fades in when needed, out when not.
+// Top left: the active spell's cooldown ring, with the health and mana bars running off to its right.
 public partial class HUD : Control
 {
     [ExportGroup("Fade")]
-    [Export] public float HoldTime = 3f;              // stays this long after the last trigger
+    [Export] public float HoldTime = 5f;              // stays this long after the last trigger
     [Export] public float FadeInSpeed = 6f;
     [Export] public float FadeOutSpeed = 1.5f;
     [Export] public float LowHealthFraction = 0.3f;   // always visible at or below this
 
+    [ExportGroup("Layout")]
+    [Export] public Vector2 Margin = new(32, 28);
+    [Export] public float CooldownRadius = 24f;
+    [Export] public float RingToBars = 12f;           // gap between the ring and the bars
+
     [ExportGroup("Bars")]
-    [Export] public Vector2 Margin = new(36, 32);
     [Export] public float PixelsPerPoint = 2.4f;      // bars grow with max HP and mana
     [Export] public float MaxBarLength = 640f;
     [Export] public float HealthHeight = 9f;
     [Export] public float ManaHeight = 5f;
+    [Export] public float ShieldHeight = 4f;
     [Export] public float BarGap = 6f;
     [Export] public float TrailDelay = 0.5f;          // lost HP lingers this long before draining
     [Export] public float TrailSpeed = 80f;           // HP per second
-
-    [ExportGroup("Cooldown")]
-    [Export] public float CooldownRadius = 26f;
 
     [ExportGroup("Colours")]
     [Export] public Color Frame = new(0.16f, 0.15f, 0.13f, 0.85f);
     [Export] public Color Back = new(0.09f, 0.085f, 0.08f, 0.5f);
     [Export] public Color HealthFill = new(0.87f, 0.83f, 0.72f);
     [Export] public Color TrailFill = new(0.72f, 0.42f, 0.33f);
-    [Export] public Color ShieldFill = new(1f, 0.97f, 0.88f);
+    [Export] public Color ShieldFill = new(0.62f, 0.82f, 0.96f);
     [Export] public Color ManaFill = new(0.63f, 0.69f, 0.71f);
     [Export] public Color Ink = new(0.87f, 0.83f, 0.72f);   // crosshair, text, cooldown ring
 
@@ -75,13 +78,14 @@ public partial class HUD : Control
     {
         float dt = (float)delta;
         bool aiming = _player.IsAiming;
+        bool holding = _caster != null && _caster.IsHolding;
         bool lowHealth = _health.Current <= _health.MaxHealth * LowHealthFraction;
 
-        if (aiming || lowHealth || GameState.MenuOpen) _wake = HoldTime;
+        if (aiming || holding || lowHealth || GameState.MenuOpen) _wake = HoldTime;
         else _wake -= dt;
         _alpha = Fade(_alpha, _wake > 0f, dt);
 
-        if (aiming) _aimWake = 0.6f;
+        if (aiming || holding) _aimWake = 0.6f;
         else _aimWake -= dt;
         _crosshairAlpha = Fade(_crosshairAlpha, _aimWake > 0f, dt);
 
@@ -102,33 +106,51 @@ public partial class HUD : Control
     {
         if (_alpha > 0.001f)
         {
-            DrawBars();
-            DrawCooldown();
+            float r = CooldownRadius;
+            var ringCenter = new Vector2(Margin.X + r, Margin.Y + r);
+
+            DrawCooldown(ringCenter);
+            DrawBars(new Vector2(ringCenter.X + r + RingToBars, ringCenter.Y));
         }
         if (_crosshairAlpha > 0.001f) DrawCrosshair();
     }
 
-    private void DrawBars()
+    // left = where the bars start; the bar stack is centred vertically on left.Y
+    private void DrawBars(Vector2 left)
     {
-        float y = Margin.Y;
+        float stack = HealthHeight + (_mana != null ? BarGap + ManaHeight : 0f);
+        float y = left.Y - stack / 2f;
 
-        var hp = new Rect2(Margin.X, y, BarLength(_health.MaxHealth), HealthHeight);
+        var hp = new Rect2(left.X, y, BarLength(_health.MaxHealth), HealthHeight);
         DrawBarBack(hp);
         DrawFill(hp, _trail / _health.MaxHealth, TrailFill);
         DrawFill(hp, _health.Current / _health.MaxHealth, HealthFill);
 
-        if (_health.Shield > 0f)   // a bright strip just above the health bar
-            DrawRect(new Rect2(Margin.X, y - 4f, BarLength(_health.Shield), 2f), Faded(ShieldFill));
+        if (_health.Shield > 0f)   // a strip just above the health bar
+        {
+            var shield = new Rect2(left.X, y - ShieldHeight - 3f, BarLength(_health.Shield), ShieldHeight);
+            DrawRect(shield.Grow(1f), Faded(Frame));
+            DrawRect(shield, Faded(ShieldFill));
+        }
 
-        if (_mana == null) return;
-        y += HealthHeight + BarGap;
+        float bottom = y + HealthHeight;
+        if (_mana != null)
+        {
+            y += HealthHeight + BarGap;
+            var mana = new Rect2(left.X, y, BarLength(_mana.MaxMana), ManaHeight);
+            DrawBarBack(mana);
+            DrawFill(mana, _mana.Current / _mana.MaxMana, ManaFill);
+            bottom = y + ManaHeight;
+        }
 
-        var mana = new Rect2(Margin.X, y, BarLength(_mana.MaxMana), ManaHeight);
-        DrawBarBack(mana);
-        DrawFill(mana, _mana.Current / _mana.MaxMana, ManaFill);
+        // Active spell's name, tucked under the bars
+        SpellDefinition spell = _caster?.ActiveSpell;
+        if (spell != null)
+            DrawString(ThemeDB.FallbackFont, new Vector2(left.X, bottom + 16f), spell.SpellName,
+                HorizontalAlignment.Left, -1, 13, Faded(Ink));
     }
 
-    private void DrawCooldown()
+    private void DrawCooldown(Vector2 center)
     {
         SpellDefinition spell = _caster?.ActiveSpell;
         if (spell == null) return;
@@ -137,7 +159,6 @@ public partial class HUD : Control
         float charges = _caster.ChargesOf(index);
         int max = _caster.MaxChargesOf(index);
         float r = CooldownRadius;
-        var center = new Vector2(Size.X - Margin.X - r, Margin.Y + r);
 
         DrawCircle(center, r + 2f, Faded(Frame));
         DrawCircle(center, r, Faded(Back));
@@ -149,19 +170,16 @@ public partial class HUD : Control
         if (progress > 0f)
             DrawArc(center, ringRadius, -Mathf.Pi / 2f, -Mathf.Pi / 2f + Mathf.Tau * progress, 48, Faded(Ink), 3f, true);
 
-        Font font = ThemeDB.FallbackFont;
         if (max > 1)   // charge count in the middle
         {
             string count = Mathf.FloorToInt(charges).ToString();
-            DrawString(font, center + new Vector2(-r, 6f), count, HorizontalAlignment.Center, r * 2f, 18, Faded(Ink));
+            DrawString(ThemeDB.FallbackFont, center + new Vector2(-r, 6f), count,
+                HorizontalAlignment.Center, r * 2f, 18, Faded(Ink));
         }
         else if (charges >= 1f)   // single-charge spell: a dot means ready
         {
             DrawCircle(center, 3f, Faded(Ink));
         }
-
-        DrawString(font, new Vector2(center.X - 100f, center.Y + r + 18f), spell.SpellName,
-            HorizontalAlignment.Center, 200f, 13, Faded(Ink));
     }
 
     private void DrawCrosshair()

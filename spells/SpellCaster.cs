@@ -7,6 +7,7 @@ public partial class SpellCaster : Node
 
     public int ActiveIndex { get; private set; }
     public SpellDefinition ActiveSpell => Spells.Count > 0 ? Spells[ActiveIndex] : null;
+    public bool IsHolding => _holdingCastId >= 0;
 
     private PlayerController _player;
     private ModifierStack _mods;

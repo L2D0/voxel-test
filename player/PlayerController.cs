@@ -65,7 +65,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _health = GetNode<Health>("Health");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
-        _aimRay.AddException(this);
+        _aimRay.AddException(this); _aimRay.CollisionMask = 1u | (1u << 1) | (1u << 2);   // World, Characters, Structures
         _spawnPoint = GlobalPosition;
 
         _health.Died += OnDied;
