@@ -47,7 +47,7 @@ public partial class Extrusion : AnimatableBody3D
 
     public override void _Ready()
     {
-        CollisionLayer = SpellFx.WorldLayer | SpellFx.StructureLayer;
+        CollisionLayer = Solid ? SpellFx.WorldLayer | SpellFx.StructureLayer : 0;
         CollisionMask = 0;
         ShapeRng.Seed = (ulong)(uint)GD.Hash(Name.ToString());
         FxRng.Randomize();
@@ -93,6 +93,9 @@ public partial class Extrusion : AnimatableBody3D
     // Round shapes look better twisted at random; flat ones (walls) shouldn't be
     protected virtual bool RandomYaw => false;
 
+    // Visual-only extrusions (Expulsion's spike) get no collision at all
+    protected virtual bool Solid => true;
+
     // Segment 0 is the top; each new one is stacked underneath as it rises
     private Vector3 SegmentPosition(int i) => new(0f, -(i + 0.5f) * SegmentHeight, 0f);
 
@@ -111,6 +114,7 @@ public partial class Extrusion : AnimatableBody3D
         };
         AddChild(visual);
         _segments.Add(visual);
+        if (!Solid) return;   // visual only: no collision
 
         var collider = new CollisionShape3D { Shape = shape, Position = SegmentPosition(i) };
         AddChild(collider);

@@ -439,7 +439,7 @@ public partial class SpellCaster : Node
         if (!_active.TryGetValue(castId, out SpellContext ctx)) return;
 
         if (ctx.Spell.Mode == CastMode.Hold) Spend(ctx.SpellIndex);
-        Rpc(MethodName.ReplicateRelease, castId, ctx.HeldTime);
+        Rpc(MethodName.ReplicateRelease, castId, ctx.HeldTime, ctx.AimPoint, ctx.AimNormal, ctx.AimHit);
     }
 
     private void CancelHeld()
@@ -536,10 +536,13 @@ public partial class SpellCaster : Node
     }
 
     [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReplicateRelease(int castId, float heldTime)
+    private void ReplicateRelease(int castId, float heldTime, Vector3 aimPoint, Vector3 aimNormal, bool aimHit)
     {
         if (!_active.Remove(castId, out SpellContext ctx)) return;
         ctx.HeldTime = heldTime;   // the owner's held time, so a charge-up resolves the same everywhere
+        ctx.AimPoint = aimPoint;   // and the owner's aim at release, for spells that track a spot while held
+        ctx.AimNormal = aimNormal;
+        ctx.AimHit = aimHit;
         ctx.Spell.Release(ctx);
     }
 

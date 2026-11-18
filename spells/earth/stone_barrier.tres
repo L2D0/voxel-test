@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="RaiseBarrierSpell" format=3 uid="uid://bff5787hqeg4s"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_k6b6s"]
+[ext_resource type="Script" uid="uid://edjj1ssq33p6" path="res://spells/earth/RaiseBarrierSpell.cs" id="2_i7lsq"]
+
+[resource]
+script = ExtResource("2_i7lsq")
+Width = 4.5
+Height = 4.0
+SegmentHeight = 0.8
+MinFlatness = 0.0
+Element = 10
+MaxCharges = 2
+Cost = 10.0
+metadata/_custom_type_script = "uid://edjj1ssq33p6"
