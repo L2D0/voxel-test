@@ -46,7 +46,11 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private RayCast3D _aimRay;
     private Label _speedLabel;
     private Health _health;
-    private SpellCaster _caster;
+    private SpellCaster _caster; 
+    private ModifierStack _mods;
+
+    // A player stat after modifiers (see PlayerStat). The export is the base value.
+    private float Stat(string stat, float baseValue) => _mods != null ? _mods.GetPlayer(stat, baseValue) : baseValue;
     private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
     private float _coyoteTimer;
@@ -70,6 +74,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
         _health = GetNode<Health>("Health");
         _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
+        _mods = GetNode<ModifierStack>("Modifiers");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
         _aimRay.AddException(this); _aimRay.CollisionMask = 1u | (1u << 1) | (1u << 2);   // World, Characters, Structures
@@ -152,11 +157,13 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     // It's the speed at impact, not the height fallen, so anything that slows you first protects you.
     private void Land(float speed)
     {
-        if (speed <= SafeFallSpeed || _fallImmuneTimer > 0f) return;
+        float safe = Stat(PlayerStat.SafeFallSpeed, SafeFallSpeed);
+        if (speed <= safe || _fallImmuneTimer > 0f) return;
         if (Skills != null && Skills.HasFlag("FallDamageImmune")) return;   // Wind's early node
 
-        float t = Mathf.Clamp((speed - SafeFallSpeed) / (LethalFallSpeed - SafeFallSpeed), 0f, 1f);
-        _health.TakeOwnDamage(LethalFallDamage * Mathf.Pow(t, FallDamageCurve), DamageType.Physical);
+        float t = Mathf.Clamp((speed - safe) / (LethalFallSpeed - safe), 0f, 1f);
+        float damage = LethalFallDamage * Mathf.Pow(t, FallDamageCurve) * Stat(PlayerStat.FallDamage, 1f);
+        _health.TakeOwnDamage(damage, DamageType.Physical);
     }
 
     // Spells that set you down gently (Tornado's drop, a Bubble popping) call this
@@ -176,7 +183,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         Vector3 wishDir = new Vector3(input.X, 0, input.Y).Rotated(Vector3.Up, _camera.Yaw).Normalized();
 
         IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
-        float maxSpeed = MaxGroundSpeed * (IsAiming ? AimSpeedMult : 1f);
+        float maxSpeed = Stat(PlayerStat.MoveSpeed, MaxGroundSpeed) * (IsAiming ? AimSpeedMult : 1f);
         float wishSpeed = maxSpeed * inputStrength;
 
         _fallImmuneTimer -= dt;
@@ -199,7 +206,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
                 horiz = horiz.Normalized() * (maxSpeed + (speed - maxSpeed) * HopSpeedRetention);
 
             // Adds to upward momentum (rising pillar, updrafts), ignores downward
-            vel.Y = Mathf.Max(vel.Y, 0f) + JumpVelocity;
+            vel.Y = Mathf.Max(vel.Y, 0f) + Stat(PlayerStat.JumpVelocity, JumpVelocity);
             _jumpBufferTimer = 0f;
             _coyoteTimer = 0f;
             grounded = false;
@@ -274,7 +281,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         Vector3 result = v + wishDir * accelSpeed;
 
         // Input can steer at any speed, but only add speed up to MaxAirSpeed
-        float limit = Mathf.Max(before, MaxAirSpeed);
+        float limit = Mathf.Max(before, Stat(PlayerStat.AirSpeed, MaxAirSpeed));
         if (result.Length() > limit) result = result.Normalized() * limit;
         return result;
     }

@@ -84,7 +84,8 @@ public partial class SpellCaster : Node
         Mathf.Max(1, Mathf.RoundToInt(Stat(Spells[index], nameof(SpellDefinition.MaxCharges))));
 
     private float RechargeTimeOf(int index) =>
-        Mathf.Max(0.05f, Stat(Spells[index], nameof(SpellDefinition.RechargeTime)));
+    Mathf.Max(0.05f, Stat(Spells[index], nameof(SpellDefinition.RechargeTime))
+                     / Mathf.Max(0.1f, _mods.GetPlayer(PlayerStat.RechargeRate, 1f)));
 
     public float ChargesOf(int index) => _charges[index];
 

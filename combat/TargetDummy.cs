@@ -45,7 +45,7 @@ public partial class TargetDummy : StaticBody3D
 
     private void UpdateLabel()
     {
-        string text = $"{_health.Current:0} / {_health.MaxHealth:0}";
+        string text = $"{_health.Current:0} / {_health.Max:0}";
         if (_statuses != null)
             foreach (StatusEffects.Instance s in _statuses.Active)
                 text += $"\n{s.Def.DisplayName} x{s.Stacks}";

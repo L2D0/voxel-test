@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://cwxstgp1ttpln" path="res://spells/ModifierStack.cs" id="9_hg6s5"]
 [ext_resource type="Resource" uid="uid://bff5787hqeg4s" path="res://spells/earth/stone_barrier.tres" id="10_wodsf"]
 [ext_resource type="Resource" uid="uid://b3vh5q5volkwn" path="res://spells/earth/earthen_expulsion.tres" id="11_32hag"]
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="13_tqiix"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
 [ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
@@ -25,6 +26,29 @@
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_oul6g"]
 radius = 0.2
+
+[sub_resource type="Resource" id="Resource_ix8qy"]
+script = ExtResource("13_tqiix")
+Scope = 3
+Stat = "MaxHealth"
+Value = 50.0
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[sub_resource type="Resource" id="Resource_snwdf"]
+script = ExtResource("13_tqiix")
+Scope = 3
+Stat = "MoveSpeed"
+Op = 1
+Value = 1.0
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[sub_resource type="Resource" id="Resource_okowu"]
+script = ExtResource("13_tqiix")
+Scope = 3
+Stat = "RechargeRate"
+Op = 1
+Value = 1.0
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
 
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_s7qer"]
 properties/0/path = NodePath(".:position")
@@ -109,6 +133,7 @@ Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7
 
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")
+DebugModifiers = Array[ExtResource("13_tqiix")]([SubResource("Resource_ix8qy"), SubResource("Resource_snwdf"), SubResource("Resource_okowu")])
 
 [node name="SkillTree" type="Node" parent="." unique_id=196627311]
 script = ExtResource("14_wodsf")

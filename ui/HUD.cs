@@ -80,7 +80,7 @@ public partial class HUD : Control
         bool aiming = _player.IsAiming;
         bool holding = _caster != null && _caster.IsHolding;
         bool targeting = _caster != null && _caster.AimReplaced;
-        bool lowHealth = _health.Current <= _health.MaxHealth * LowHealthFraction;
+        bool lowHealth = _health.Current <= _health.Max * LowHealthFraction;
 
         if (aiming || holding || lowHealth || GameState.MenuOpen) _wake = HoldTime;
         else _wake -= dt;
@@ -123,10 +123,10 @@ public partial class HUD : Control
         float stack = HealthHeight + (_mana != null ? BarGap + ManaHeight : 0f);
         float y = left.Y - stack / 2f;
 
-        var hp = new Rect2(left.X, y, BarLength(_health.MaxHealth), HealthHeight);
+        var hp = new Rect2(left.X, y, BarLength(_health.Max), HealthHeight);
         DrawBarBack(hp);
-        DrawFill(hp, _trail / _health.MaxHealth, TrailFill);
-        DrawFill(hp, _health.Current / _health.MaxHealth, HealthFill);
+        DrawFill(hp, _trail / _health.Max, TrailFill);
+        DrawFill(hp, _health.Current / _health.Max, HealthFill);
 
         if (_health.Shield > 0f)   // a strip just above the health bar
         {
@@ -139,9 +139,9 @@ public partial class HUD : Control
         if (_mana != null)
         {
             y += HealthHeight + BarGap;
-            var mana = new Rect2(left.X, y, BarLength(_mana.MaxMana), ManaHeight);
+            var mana = new Rect2(left.X, y, BarLength(_mana.Max), ManaHeight);
             DrawBarBack(mana);
-            DrawFill(mana, _mana.Current / _mana.MaxMana, ManaFill);
+            DrawFill(mana, _mana.Current / _mana.Max, ManaFill);
             bottom = y + ManaHeight;
         }
 
