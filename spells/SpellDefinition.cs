@@ -42,6 +42,7 @@ public partial class SpellDefinition : Resource
     [Export] public int PointCount = 2;             // MultiPoint: how many spots to pick
     [Export] public bool RechargeAfterEnd = false;  // charges don't refill while a cast of this spell is running
     [Export] public bool AllowRecast = false;       // pressing cast while it's running calls Recast, then ends it
+    [Export] public bool FaceAimWhileHeld = false;  // Hold and Channel: the player turns with the camera until released
 
     [ExportGroup("Targeting")]
     [Export] public bool RequiresTarget = false;    // can't be cast without a valid entity under the crosshair

@@ -271,7 +271,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     {
         Vector3 rot = _model.Rotation;
 
-        if (_camera.FirstPerson)
+        if (_camera.FirstPerson || (_caster?.LocksFacing ?? false))
+            if (_camera.FirstPerson)
             rot.Y = _camera.Yaw;
         else if (IsAiming)
             rot.Y = Mathf.LerpAngle(rot.Y, _camera.Yaw, TurnSpeed * dt);

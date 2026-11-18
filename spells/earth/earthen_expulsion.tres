@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="EarthenExpulsionSpell" format=3 uid="uid://b3vh5q5volkwn"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_k8pic"]
+[ext_resource type="Script" uid="uid://ca5c3wikgyf2c" path="res://spells/earth/EarthenExpulsionSpell.cs" id="2_2ltva"]
+
+[resource]
+script = ExtResource("2_2ltva")
+Radius = 5.0
+SpikeHeight = 3.5
+metadata/_custom_type_script = "uid://ca5c3wikgyf2c"

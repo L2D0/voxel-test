@@ -7,8 +7,8 @@
 script = ExtResource("2_i7lsq")
 Width = 4.5
 Height = 4.0
+Lifetime = 1000.0
 SegmentHeight = 0.8
-MinFlatness = 0.0
 Element = 10
 MaxCharges = 2
 Cost = 10.0

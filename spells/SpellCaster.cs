@@ -10,6 +10,10 @@ public partial class SpellCaster : Node
     public bool IsHolding => _heldCastId >= 0;     // holding cast on a Hold or Channel spell
     public bool IsPicking => _points.Count > 0;    // part way through a MultiPoint cast
 
+    // Holding a spell that keeps the player turned toward the camera (beams, charged throws)
+    public bool LocksFacing =>
+        _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.FaceAimWhileHeld;
+
     // Right click belongs to the spell (alt fire) instead of aiming
     public bool AimReplaced => ActiveSpell != null && ActiveSpell.AltMode != AltMode.None;
 
@@ -454,6 +458,11 @@ public partial class SpellCaster : Node
     public void EndCast(SpellContext ctx)
     {
         if (IsLocal && _active.ContainsKey(ctx.CastId)) Rpc(MethodName.ReplicateFinish, ctx.CastId);
+    }
+    // For hold spells that fire on their own (Expulsion reaching full range): same as letting go
+    public void ForceRelease()
+    {
+        if (IsLocal) ReleaseCast();
     }
 
     // ---------- Casting (every machine) ----------

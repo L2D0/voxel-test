@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://duipdyqnq1sf0" path="res://spells/earth/stone_pillar.tres" id="8_kb6p2"]
 [ext_resource type="Script" uid="uid://cwxstgp1ttpln" path="res://spells/ModifierStack.cs" id="9_hg6s5"]
 [ext_resource type="Resource" uid="uid://bff5787hqeg4s" path="res://spells/earth/stone_barrier.tres" id="10_wodsf"]
+[ext_resource type="Resource" uid="uid://b3vh5q5volkwn" path="res://spells/earth/earthen_expulsion.tres" id="11_32hag"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
 [ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
@@ -104,7 +105,7 @@ script = ExtResource("3_g1dw6")
 
 [node name="Spellcaster" type="Node" parent="." unique_id=1953736732]
 script = ExtResource("4_g6k8r")
-Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7pqkx"), ExtResource("10_wodsf")])
+Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7pqkx"), ExtResource("10_wodsf"), ExtResource("11_32hag")])
 
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")

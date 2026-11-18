@@ -1,8 +1,9 @@
 using Godot;
 
-// Hold to charge: a marker crawls along the ground toward wherever you're aiming.
-// Release: a spike erupts under the marker and throws whatever's standing there into the air,
-// harder the longer you charged.
+// Hold to charge: a marker runs out along the ground from your feet, in whichever direction
+// you're facing (only your horizontal aim counts). It never comes back toward you.
+// Release, or let it reach full range: a spike erupts under the marker and throws whatever's
+// standing there into the air, harder the longer you charged.
 [GlobalClass]
 public partial class EarthenExpulsionSpell : SpellDefinition
 {
@@ -11,7 +12,7 @@ public partial class EarthenExpulsionSpell : SpellDefinition
     [Export] public float MinLaunch = 6f;           // upward speed at no charge
     [Export] public float MaxLaunch = 16f;          // upward speed at full charge
     [Export] public float Radius = 1.6f;            // how wide the eruption catches
-    [Export] public float MarkerSpeed = 20f;        // how fast the marker crawls toward your aim
+    [Export] public float MarkerSpeed = 12f;        // how fast the marker runs out from you
     [Export] public float SpikeHeight = 2.6f;
     [Export] public float SpikeLifetime = 0.2f;
     [Export] public Color MarkerColor = new(0.85f, 0.7f, 0.45f, 0.6f);
@@ -22,9 +23,10 @@ public partial class EarthenExpulsionSpell : SpellDefinition
         Element = Element.Earth;
         Mode = CastMode.Hold;
         ChargeTime = 1f;
-        Range = 20f;
+        Range = 18f;   // the marker fires on its own when it gets this far
         RechargeTime = 5f;
         Cost = 25f;
+        FaceAimWhileHeld = true;
     }
 
     // ---------- Charging ----------
@@ -43,7 +45,8 @@ public partial class EarthenExpulsionSpell : SpellDefinition
         ctx.Caster.GetTree().CurrentScene.AddChild(marker);
         ctx.Instance = marker;
 
-        // Starts at the caster's feet
+        // Starts at the caster's feet. TickTimer holds how far it has travelled.
+        ctx.TickTimer = 0f;
         ctx.AimHit = GroundBelow(ctx.Caster, ctx.Caster.GlobalPosition, out ctx.AimPoint, out ctx.AimNormal);
         PlaceMarker(ctx);
         return true;
@@ -53,25 +56,22 @@ public partial class EarthenExpulsionSpell : SpellDefinition
     {
         if (ctx.Instance == null) return;   // not the caster's machine
 
-        // Crawl toward the crosshair, staying on the ground and within range.
-        // ctx.AimPoint is what gets sent with the release, so it always holds the marker's spot.
-        SpellContext aim = ctx.Caster.BuildSpellContext();
-        if (aim.AimHit)
-        {
-            Vector3 goal = aim.AimPoint;
-            Vector3 fromCaster = goal - ctx.Caster.GlobalPosition;
-            float range = ctx.Stat(nameof(Range));
-            if (fromCaster.Length() > range) goal = ctx.Caster.GlobalPosition + fromCaster.Normalized() * range;
+        // Distance only ever grows; direction is the camera's facing, flattened, so looking up or down changes nothing
+        float range = ctx.Stat(nameof(Range));
+        ctx.TickTimer = Mathf.Min(ctx.TickTimer + ctx.Stat(nameof(MarkerSpeed)) * dt, range);
 
-            Vector3 next = ctx.AimPoint.MoveToward(goal, ctx.Stat(nameof(MarkerSpeed)) * dt);
-            if (GroundBelow(ctx.Caster, next, out Vector3 point, out Vector3 normal))
-            {
-                ctx.AimPoint = point;
-                ctx.AimNormal = normal;
-                ctx.AimHit = true;
-            }
-        }
+        Vector3 facing = ctx.Caster.LiveAimDirection;
+        facing = new Vector3(facing.X, 0f, facing.Z);
+        if (facing.LengthSquared() < 0.0001f) facing = Vector3.Forward;
+        Vector3 spot = ctx.Caster.GlobalPosition + facing.Normalized() * ctx.TickTimer;
+
+        // ctx.AimPoint is what gets sent with the release, so it always holds the marker's spot.
+        // Over a drop or a wall with no ground under it, the marker hides and a release there does nothing.
+        ctx.AimHit = GroundBelow(ctx.Caster, spot, out ctx.AimPoint, out ctx.AimNormal);
         PlaceMarker(ctx);
+
+        // Full range: fire on its own, as if released
+        if (ctx.TickTimer >= range) ctx.Casting.ForceRelease();
     }
 
     private static void PlaceMarker(SpellContext ctx)
@@ -86,7 +86,7 @@ public partial class EarthenExpulsionSpell : SpellDefinition
 
     private static bool GroundBelow(Node3D from, Vector3 near, out Vector3 point, out Vector3 normal)
     {
-        var query = PhysicsRayQueryParameters3D.Create(near + Vector3.Up * 2f, near + Vector3.Down * 6f, SpellFx.WorldLayer);
+        var query = PhysicsRayQueryParameters3D.Create(near + Vector3.Up * 4f, near + Vector3.Down * 8f, SpellFx.WorldLayer);
         var hit = from.GetWorld3D().DirectSpaceState.IntersectRay(query);
         point = hit.Count > 0 ? (Vector3)hit["position"] : near;
         normal = hit.Count > 0 ? (Vector3)hit["normal"] : Vector3.Up;
