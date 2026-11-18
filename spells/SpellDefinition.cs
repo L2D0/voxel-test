@@ -5,15 +5,15 @@ using Godot;
 // Channel:    runs while held, drains CostPerSecond, ends on release, empty mana or MaxChannelTime.
 // Duration:   runs for Duration seconds; RechargeAfterEnd and AllowRecast are mostly for these.
 // Delayed:    placed now, resolves after Delay seconds (Expire is the moment it lands).
-// MultiPoint: pick PointCount spots with separate clicks, then it resolves like Instant.
+// MultiPoint: pick PointCount spots with separate clicks while aiming, then it resolves like Instant.
+//             Letting go of aim throws away the picks so far.
 public enum CastMode { Instant, Hold, Channel, Duration, Delayed, MultiPoint }
 public enum CostType { Mana, Health }
 
 // What right click does. Anything but None replaces aiming (no zoom) for that spell.
 // SelfCast:    cast it on yourself.
 // AltCast:     cast it with ctx.IsAlt = true, for spells with a second behaviour (Ivy whip's latch).
-// CancelPicks: MultiPoint, throw away the spots picked so far.
-public enum AltMode { None, SelfCast, AltCast, CancelPicks }
+public enum AltMode { None, SelfCast, AltCast }
 
 [System.Flags]
 public enum TargetFilter { None = 0, Enemies = 1, Allies = 2 }
@@ -27,7 +27,8 @@ public partial class SpellDefinition : Resource
     [Export] public CastMode Mode = CastMode.Instant;
     [Export] public int MaxCharges = 1;
     [Export] public float RechargeTime = 1f;
-    [Export] public float Range = 0f;   // 0 = unlimited, and no range bubble
+    [Export] public float Range = 0f;   // how far it reaches; 0 = unlimited, and no range bubble
+    [Export] public int MaxActive = 0;  // how many of its objects can exist at once; the oldest goes first. 0 = no cap
     [Export] public Godot.Collections.Array<StatusDefinition> AppliesStatuses = new();
     [Export] public CostType PaysWith = CostType.Mana;
     [Export] public float Cost = 0f;
@@ -47,7 +48,8 @@ public partial class SpellDefinition : Resource
     [Export] public TargetFilter Targets = TargetFilter.Enemies;
     [Export] public float AssistRadius = 0.4f;      // how far off the crosshair a target can be and still count
     [Export] public AltMode AltMode = AltMode.None;
-    [Export] public bool SnapsToAnchors = false;    // the aim point jumps onto ISnapTargets near the crosshair
+    [Export] public SnapKind SnapsTo = SnapKind.None;   // the aim point jumps onto snap targets of these kinds
+    [Export] public bool RequiresSnap = false;          // only castable on one of them (Crystal binds)
 
     public virtual bool IsTargetValid(SpellContext ctx) => true;
 
@@ -60,7 +62,8 @@ public partial class SpellDefinition : Resource
     public virtual void Expire(SpellContext ctx) { }    // Duration, Delayed: time ran out, or ended early
     public virtual void Cancel(SpellContext ctx) { }    // interrupted before finishing (switched spell)
     public virtual void Recast(SpellContext ctx) { }    // AllowRecast: runs just before Expire
-
+                                                        // Chains: the host works out the route and every machine draws it from the same list of hops
+    public virtual void ShowChain(SpellContext ctx, Node3D[] hops) { }
     // Optional targeting preview, shown while aiming with this spell active
     public virtual Node3D CreatePreview() => null;
     public virtual void UpdatePreview(Node3D preview, SpellContext ctx, bool valid) { }
@@ -80,6 +83,7 @@ public class SpellContext
     public GodotObject AimCollider;
     public bool AimHit;
     public Vector3[] Points = System.Array.Empty<Vector3>();   // MultiPoint picks, in order
+    public Node3D[] PointTargets = System.Array.Empty<Node3D>();   // what each pick snapped to (null if nothing)
     public Node3D Target;         // targeted spells: who it was cast on (the caster, for a self-cast)
     public bool IsAlt;            // cast with right click
     public bool Snapped;          // the aim point was moved onto an ISnapTarget
@@ -104,6 +108,11 @@ public class SpellContext
             return time <= 0f ? 1f : Mathf.Clamp(HeldTime / time, 0f, 1f);
         }
     }
+
+    // Registers something this cast spawned, so the spell's MaxActive cap can remove the oldest
+    public void Track(Node node) => Casting.Track(SpellIndex, node);
+
+    public SpellCaster Casting => Caster.GetNode<SpellCaster>("Spellcaster");
 
     // Applies every status this spell carries to a target, if it can hold statuses
     public void ApplyStatuses(Node target)

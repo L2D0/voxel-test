@@ -41,7 +41,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private RayCast3D _aimRay;
     private Label _speedLabel;
     private Health _health;
-
+    private SpellCaster _caster;
     private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
     private float _coyoteTimer;
@@ -63,6 +63,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         _aimRay = GetNode<RayCast3D>("CameraPivot/SpringArm3D/Camera3D/AimRay");
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
         _health = GetNode<Health>("Health");
+        _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
         _aimRay.AddException(this); _aimRay.CollisionMask = 1u | (1u << 1) | (1u << 2);   // World, Characters, Structures
@@ -152,7 +153,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         float inputStrength = Mathf.Min(input.Length(), 1f);
         Vector3 wishDir = new Vector3(input.X, 0, input.Y).Rotated(Vector3.Up, _camera.Yaw).Normalized();
 
-        IsAiming = canAct && Input.IsActionPressed("aim");
+        IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
         float maxSpeed = MaxGroundSpeed * (IsAiming ? AimSpeedMult : 1f);
         float wishSpeed = maxSpeed * inputStrength;
 
@@ -287,6 +288,10 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     // Where the player is looking right now. Works on every machine, since the camera pivot's rotation is synced.
     public Vector3 LiveAimDirection => -_camera.GlobalBasis.Z;
     public Vector3 LiveCastOrigin => _castPoint.GlobalPosition;
+
+    // The crosshair's line: from the camera, straight through the middle of the screen
+    public Vector3 AimFrom => _aimRay.GlobalPosition;
+    public Vector3 AimForward => (_aimRay.ToGlobal(_aimRay.TargetPosition) - _aimRay.GlobalPosition).Normalized();
 
     public SpellContext BuildSpellContext()
     {

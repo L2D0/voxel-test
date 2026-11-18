@@ -2,12 +2,24 @@
 
 [ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_sjs0w"]
 [ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_14whs"]
-[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="2_samiw"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_samiw"]
+[ext_resource type="Script" uid="uid://ddwv8vnx4legx" path="res://spells/earth/StonePillarSpell.cs" id="3_xmjfk"]
+
+[sub_resource type="Resource" id="Resource_ae1s4"]
+script = ExtResource("3_xmjfk")
+MaxHeight = 10.0
+RiseSpeed = 4.0
+PillarRadius = 1.5
+SpellName = "Stone Pillar"
+Element = 10
+RechargeTime = 4.0
+Cost = 20.0
+metadata/_custom_type_script = "uid://ddwv8vnx4legx"
 
 [sub_resource type="Resource" id="Resource_samiw"]
 script = ExtResource("1_sjs0w")
 Element = 10
-Spell = ExtResource("2_samiw")
+Spell = SubResource("Resource_ae1s4")
 Stat = "MaxHealth"
 Op = 1
 Value = 0.5

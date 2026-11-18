@@ -6,28 +6,12 @@
 [ext_resource type="Script" uid="uid://v0rtdhgt84yb" path="res://ui/SpellWheel.cs" id="3_boad6"]
 [ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="3_g1dw6"]
 [ext_resource type="Script" uid="uid://byi3gqgl3qul8" path="res://spells/SpellCaster.cs" id="4_g6k8r"]
-[ext_resource type="Script" uid="uid://5p1vslj5ykph" path="res://spells/SpellDefinition.cs" id="5_boad6"]
-[ext_resource type="Resource" uid="uid://cuad0dnq8qlkb" path="res://spells/heatburst.tres" id="6_rgyib"]
-[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="8_rgyib"]
+[ext_resource type="Script" uid="uid://5p1vslj5ykph" path="res://spells/SpellDefinition.cs" id="7_knn7v"]
+[ext_resource type="Resource" uid="uid://ce5m8xps52ar6" path="res://spells/shock/arc_bolt.tres" id="8_7pqkx"]
+[ext_resource type="Resource" uid="uid://duipdyqnq1sf0" path="res://spells/earth/stone_pillar.tres" id="8_kb6p2"]
 [ext_resource type="Script" uid="uid://cwxstgp1ttpln" path="res://spells/ModifierStack.cs" id="9_hg6s5"]
-[ext_resource type="Resource" uid="uid://crcls63fdltpy" path="res://spells/test/kindle_test.tres" id="10_b8hi5"]
-[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="10_yllr7"]
-[ext_resource type="Resource" uid="uid://bol5cn2y1ia5r" path="res://spells/test/beam_test.tres" id="11_2uvqg"]
-[ext_resource type="Resource" uid="uid://bqly48vpm1o77" path="res://modifiers/test_heatburst_charges.tres" id="11_kb6p2"]
-[ext_resource type="Resource" uid="uid://deba630rssplc" path="res://spells/test/flare_test.tres" id="12_1s1yo"]
-[ext_resource type="Resource" uid="uid://h7gy8lded6vk" path="res://modifiers/test_fast_recharge.tres" id="12_wodsf"]
-[ext_resource type="Resource" uid="uid://ojcpkk7lg4fu" path="res://spells/test/tether_test.tres" id="13_5ejfk"]
-[ext_resource type="Resource" uid="uid://cbek4a6ce44r7" path="res://modifiers/test_earth_height.tres" id="13_32hag"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
-[ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="15_s7qer"]
-[ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="16_g4c7l"]
-[ext_resource type="Resource" uid="uid://ck5ej4okoq8m1" path="res://skills/earth_seismic.tres" id="17_knn7v"]
-[ext_resource type="Resource" uid="uid://bibwxa5mti5sw" path="res://skills/earth_towering.tres" id="18_7pqkx"]
-[ext_resource type="Resource" uid="uid://1rjnx77lv8if" path="res://skills/fire_kindling.tres" id="19_uw77l"]
-[ext_resource type="Resource" uid="uid://il7jv6458y01" path="res://skills/fire_tempered.tres" id="20_rptt4"]
-[ext_resource type="Resource" uid="uid://cqei3538a5qfm" path="res://skills/fire_volatile.tres" id="21_r7pn3"]
-[ext_resource type="Resource" uid="uid://vertftpioamy" path="res://skills/fusion_molten.tres" id="22_b8hi5"]
 [ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
 [ext_resource type="Script" uid="uid://cn67b2tnva6jk" path="res://combat/Mana.cs" id="26_uw77l"]
 
@@ -119,15 +103,13 @@ script = ExtResource("3_g1dw6")
 
 [node name="Spellcaster" type="Node" parent="." unique_id=1953736732]
 script = ExtResource("4_g6k8r")
-Spells = Array[ExtResource("5_boad6")]([ExtResource("6_rgyib"), ExtResource("8_rgyib"), ExtResource("10_b8hi5"), ExtResource("11_2uvqg"), ExtResource("12_1s1yo"), ExtResource("13_5ejfk")])
+Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7pqkx")])
 
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")
-DebugModifiers = Array[ExtResource("10_yllr7")]([ExtResource("11_kb6p2"), ExtResource("12_wodsf"), ExtResource("13_32hag")])
 
 [node name="SkillTree" type="Node" parent="." unique_id=196627311]
 script = ExtResource("14_wodsf")
-Nodes = Array[ExtResource("15_s7qer")]([ExtResource("16_g4c7l"), ExtResource("17_knn7v"), ExtResource("18_7pqkx"), ExtResource("19_uw77l"), ExtResource("20_rptt4"), ExtResource("21_r7pn3"), ExtResource("22_b8hi5")])
 
 [node name="GameMenu" parent="." unique_id=187448465 node_paths=PackedStringArray("SkillTree") instance=ExtResource("15_32hag")]
 SkillTree = NodePath("../SkillTree")

@@ -2,24 +2,55 @@
 
 [ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_yggtm"]
 [ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_co76g"]
-[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="2_ungft"]
-[ext_resource type="Resource" uid="uid://cuad0dnq8qlkb" path="res://spells/heatburst.tres" id="3_b4v4o"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_y2alb"]
+[ext_resource type="Script" uid="uid://ddwv8vnx4legx" path="res://spells/earth/StonePillarSpell.cs" id="3_i8xib"]
+[ext_resource type="Resource" uid="uid://baaw3mbo6m7f1" path="res://combat/statuses/brittle.tres" id="4_k4g57"]
 [ext_resource type="Resource" uid="uid://1rjnx77lv8if" path="res://skills/fire_kindling.tres" id="5_6qsxc"]
+[ext_resource type="Resource" uid="uid://uc1g8t10vknc" path="res://combat/statuses/burning.tres" id="5_7rs00"]
+[ext_resource type="Resource" uid="uid://dt5fskkgt4181" path="res://effects/embers.tres" id="6_mwk14"]
 [ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="6_rbph4"]
+[ext_resource type="PackedScene" uid="uid://bhn226rmh7bxt" path="res://spells/heatburst_projectile.tscn" id="7_5mqip"]
+[ext_resource type="Script" uid="uid://bmhtak708x82c" path="res://spells/HeatburstSpell.cs" id="8_5aff0"]
+
+[sub_resource type="Resource" id="Resource_ae1s4"]
+script = ExtResource("3_i8xib")
+MaxHeight = 10.0
+RiseSpeed = 4.0
+PillarRadius = 1.5
+SpellName = "Stone Pillar"
+Element = 10
+RechargeTime = 4.0
+Cost = 20.0
+metadata/_custom_type_script = "uid://ddwv8vnx4legx"
 
 [sub_resource type="Resource" id="Resource_fc6p5"]
 script = ExtResource("1_yggtm")
 Element = 10
-Spell = ExtResource("2_ungft")
+Spell = SubResource("Resource_ae1s4")
 Stat = "RiseSpeed"
 Op = 1
 Value = 0.3
 metadata/_custom_type_script = "uid://bb6d7upji3aff"
 
+[sub_resource type="Resource" id="Resource_x278v"]
+script = ExtResource("8_5aff0")
+ProjectileScene = ExtResource("7_5mqip")
+Radius = 8.0
+Knockback = 14.0
+SelfKnockback = 14.0
+SelfUpwardBias = 0.8
+LeavesEffect = ExtResource("6_mwk14")
+SpellName = "Heatburst"
+Element = 1
+RechargeTime = 1.2
+AppliesStatuses = Array[ExtResource("2_y2alb")]([ExtResource("4_k4g57"), ExtResource("5_7rs00")])
+Cost = 15.0
+metadata/_custom_type_script = "uid://bmhtak708x82c"
+
 [sub_resource type="Resource" id="Resource_s03ox"]
 script = ExtResource("1_yggtm")
 Element = 1
-Spell = ExtResource("3_b4v4o")
+Spell = SubResource("Resource_x278v")
 Stat = "Damage"
 Op = 1
 Value = 0.2

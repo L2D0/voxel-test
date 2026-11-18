@@ -10,7 +10,7 @@ public partial class TestAnchor : StaticBody3D, ISnapTarget
     private float _age;
 
     public Vector3 SnapPoint => GlobalPosition + Vector3.Up * Height;
-
+    public SnapKind Kind => SnapKind.Anchor;
     public override void _Ready()
     {
         CollisionLayer = SpellFx.StructureLayer;

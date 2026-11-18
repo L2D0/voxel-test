@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ZapTestSpell" format=3 uid="uid://cfgu0i34go86"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_wli5x"]
+[ext_resource type="Script" uid="uid://bg8t4u8e64v1y" path="res://spells/test/ZapTestSpell.cs" id="2_kbsia"]
+
+[resource]
+script = ExtResource("2_kbsia")
+metadata/_custom_type_script = "uid://bg8t4u8e64v1y"

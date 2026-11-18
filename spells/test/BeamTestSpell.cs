@@ -5,7 +5,6 @@ using Godot;
 public partial class BeamTestSpell : SpellDefinition
 {
     [ExportGroup("Beam")]
-    [Export] public float BeamRange = 25f;
     [Export] public float DamagePerSecond = 20f;
     [Export] public float TickInterval = 0.2f;
     [Export] public Color BeamColor = new(1f, 0.6f, 0.25f, 0.8f);
@@ -15,6 +14,7 @@ public partial class BeamTestSpell : SpellDefinition
         SpellName = "Test Beam";
         Element = Element.Fire;
         Mode = CastMode.Channel;
+        Range = 25f;   // the base Range stat, so it gets the range bubble and range modifiers
         CostPerSecond = 15f;
     }
 
@@ -37,7 +37,7 @@ public partial class BeamTestSpell : SpellDefinition
 
         // Live aim, not the aim at the moment of casting: the camera's rotation is synced, so this works everywhere
         Vector3 from = ctx.Caster.LiveCastOrigin;
-        Vector3 to = from + ctx.Caster.LiveAimDirection * ctx.Stat(nameof(BeamRange));
+        Vector3 to = from + ctx.Caster.LiveAimDirection * ctx.Stat(nameof(Range));
 
         var query = PhysicsRayQueryParameters3D.Create(from, to, SpellFx.AnythingMask,
             new Godot.Collections.Array<Rid> { ctx.Caster.GetRid() });

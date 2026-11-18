@@ -30,11 +30,15 @@ public partial class SpellCaster : Node
     // Owner only
     private int _heldCastId = -1;
     private int _nextCastId;
-    private readonly List<Vector3> _points = new();   // MultiPoint picks so far
+    private readonly List<Vector3> _points = new();       // MultiPoint picks so far
+    private readonly List<Node3D> _pickTargets = new();   // what each pick snapped to
     private float _healthDebt;                         // health-cost channels pay in whole points
 
     // Every machine: casts still running, by cast id
     private readonly Dictionary<int, SpellContext> _active = new();
+
+    // Every machine: objects each spell has spawned, oldest first (for MaxActive)
+    private readonly Dictionary<int, List<Node>> _owned = new();
 
     private Node3D _preview;
     private SpellDefinition _previewSpell;
@@ -134,12 +138,13 @@ public partial class SpellCaster : Node
         ctx.Mods = _mods;
         ctx.SpellIndex = ActiveIndex;
         ctx.Points = _points.ToArray();
+        ctx.PointTargets = _pickTargets.ToArray();
         ctx.IsAlt = alt;
 
         if (alt && spell.AltMode == AltMode.SelfCast) ctx.Target = _player;
         else if (spell.RequiresTarget) ctx.Target = FindTarget(spell);
 
-        if (spell.SnapsToAnchors) ApplySnap(ctx);
+        if (spell.SnapsTo != SnapKind.None) ApplySnap(ctx);
         return ctx;
     }
 
@@ -154,8 +159,7 @@ public partial class SpellCaster : Node
     private bool IsValidTarget(SpellDefinition spell, Node3D body)
     {
         if (body == _player || Health.Of(body) == null) return false;
-        TargetFilter needed = Teams.AreAllies(_player, body) ? TargetFilter.Allies : TargetFilter.Enemies;
-        return (spell.Targets & needed) != 0;
+        return Teams.Matches(_player, body, spell.Targets);
     }
 
     private Node3D FindTarget(SpellDefinition spell) =>
@@ -165,7 +169,9 @@ public partial class SpellCaster : Node
     private void ApplySnap(SpellContext ctx)
     {
         Node3D found = FindAlongAim(TargetRange(ctx.Spell), Stat(ctx.Spell, nameof(SpellDefinition.AssistRadius)),
-            SpellFx.StructureLayer, body => body is ISnapTarget);
+            SpellFx.StructureLayer,
+            body => body is ISnapTarget s && (s.Kind & ctx.Spell.SnapsTo) != 0,
+            body => ((ISnapTarget)body).SnapPoint);   // measure to where it snaps, not to its base
         if (found is not ISnapTarget snap) return;
 
         ctx.AimPoint = snap.SnapPoint;
@@ -176,8 +182,10 @@ public partial class SpellCaster : Node
         ctx.Snapped = true;
     }
 
-    // Aim assist: the valid body closest to the crosshair's line, within range and in line of sight
-    private Node3D FindAlongAim(float range, float assist, uint mask, System.Func<Node3D, bool> valid)
+    // Aim assist: the valid body closest to the crosshair's line, within range and in line of sight.
+    // pointOf says which point on a body to measure to (its origin, unless given).
+    private Node3D FindAlongAim(float range, float assist, uint mask, System.Func<Node3D, bool> valid,
+                                System.Func<Node3D, Vector3> pointOf = null)
     {
         Vector3 from = _player.AimFrom;
         Vector3 dir = _player.AimForward;
@@ -189,14 +197,15 @@ public partial class SpellCaster : Node
         {
             if (!valid(body)) continue;
 
-            Vector3 toBody = body.GlobalPosition - from;
+            Vector3 point = pointOf != null ? pointOf(body) : body.GlobalPosition;
+            Vector3 toBody = point - from;
             float along = toBody.Dot(dir);
             if (along <= 0f) continue;                          // behind the camera
 
             float off = (toBody - dir * along).Length();        // distance from the crosshair's line
             if (off > assist + TargetPadding) continue;
 
-            var sight = PhysicsRayQueryParameters3D.Create(from, body.GlobalPosition, SpellFx.WorldLayer);
+            var sight = PhysicsRayQueryParameters3D.Create(from, point, SpellFx.WorldLayer);
             if (space.IntersectRay(sight).Count > 0) continue;  // terrain in the way
 
             float score = off + along * 0.01f;                  // closest to the line wins; nearer breaks ties
@@ -215,8 +224,42 @@ public partial class SpellCaster : Node
     {
         if (index < 0 || index >= Spells.Count || index == ActiveIndex) return;
         CancelHeld();
-        _points.Clear();
+        ClearPicks();
         ActiveIndex = index;
+    }
+
+    private void ClearPicks()
+    {
+        _points.Clear();
+        _pickTargets.Clear();
+    }
+
+    // ---------- Spawned objects ----------
+
+    // Every machine runs this for every cast, in the same order, so they all remove the same oldest one
+    public void Track(int spellIndex, Node node)
+    {
+        if (!_owned.TryGetValue(spellIndex, out List<Node> list))
+            _owned[spellIndex] = list = new List<Node>();
+
+        list.RemoveAll(n => !IsInstanceValid(n) || n.IsQueuedForDeletion());   // already expired
+        list.Add(node);
+
+        int max = Mathf.RoundToInt(Stat(Spells[spellIndex], nameof(SpellDefinition.MaxActive)));
+        while (max > 0 && list.Count > max)
+        {
+            if (list[0] is Extrusion extrusion) extrusion.Crumble();   // earth breaks apart rather than vanishing
+            else list[0].QueueFree();
+            list.RemoveAt(0);
+        }
+    }
+
+    // Oldest first: the next one to be replaced is OwnedBy(i)[0]
+    public IReadOnlyList<Node> OwnedBy(int spellIndex)
+    {
+        if (!_owned.TryGetValue(spellIndex, out List<Node> list)) return System.Array.Empty<Node>();
+        list.RemoveAll(n => !IsInstanceValid(n) || n.IsQueuedForDeletion());
+        return list;
     }
 
     // ---------- Every frame ----------
@@ -241,6 +284,7 @@ public partial class SpellCaster : Node
         if (!IsLocal) return;   // upkeep, charges, preview and HUD are only for this machine's own player
 
         UpdateChannel(dt);
+        if (IsPicking && !_player.IsAiming) ClearPicks();   // letting go of aim abandons a MultiPoint cast
 
         SpellDefinition active = ActiveSpell;
         CurrentTarget = active != null && active.RequiresTarget && !_player.MenuOpen ? FindTarget(active) : null;
@@ -281,7 +325,7 @@ public partial class SpellCaster : Node
             _previewSpell = spell;
         }
 
-        bool show = spell != null && !IsHolding && (_player.IsAiming || AimReplaced || IsPicking) && !_player.MenuOpen;
+        bool show = spell != null && !IsHolding && _player.IsAiming && !_player.MenuOpen;
         if (!show)
         {
             if (_preview != null) _preview.Visible = false;
@@ -296,7 +340,7 @@ public partial class SpellCaster : Node
         }
 
         SpellContext ctx = BuildContext(spell);
-        bool valid = spell.IsTargetValid(ctx);
+        bool valid = spell.IsTargetValid(ctx) && (!spell.RequiresSnap || ctx.Snapped);
 
         if (_preview != null)
         {
@@ -329,9 +373,6 @@ public partial class SpellCaster : Node
     {
         switch (ActiveSpell.AltMode)
         {
-            case AltMode.CancelPicks:
-                _points.Clear();
-                break;
             case AltMode.SelfCast:
             case AltMode.AltCast:
                 TryCast(true);
@@ -355,21 +396,35 @@ public partial class SpellCaster : Node
 
         SpellContext ctx = BuildContext(spell, alt);
         if (spell.RequiresTarget && ctx.Target == null) return;   // nothing under the crosshair
+        if (spell.RequiresSnap && !ctx.Snapped) return;           // not on an anchor
         if (!spell.IsTargetValid(ctx)) return;   // validated here, on the machine that can see the target
 
         if (spell.Mode == CastMode.MultiPoint)
         {
+            if (!_player.IsAiming) return;   // picks are made while aiming
+
+            Node3D snapped = ctx.Snapped ? ctx.AimCollider as Node3D : null;
+            if (snapped != null && _pickTargets.Contains(snapped)) return;   // can't pick the same anchor twice
+
             _points.Add(ctx.AimPoint);
+            _pickTargets.Add(snapped);
             if (_points.Count < Mathf.Max(1, spell.PointCount)) return;   // keep picking
+
             ctx.Points = _points.ToArray();
-            _points.Clear();
+            ctx.PointTargets = _pickTargets.ToArray();
+            ClearPicks();
         }
 
         int castId = _nextCastId++;
         int index = ActiveIndex;
+        // Nodes can't be sent, but their paths can: the same path finds the same node on every machine
         NodePath target = ctx.Target != null ? ctx.Target.GetPath() : new NodePath("");
+        string[] pickPaths = new string[ctx.PointTargets.Length];
+        for (int i = 0; i < pickPaths.Length; i++)
+            pickPaths[i] = ctx.PointTargets[i] != null ? ctx.PointTargets[i].GetPath().ToString() : "";
+
         Rpc(MethodName.ReplicateBegin, index, castId,
-            ctx.CastOrigin, ctx.AimPoint, ctx.AimNormal, ctx.AimDirection, ctx.AimHit, ctx.Points, alt, target);
+            ctx.CastOrigin, ctx.AimPoint, ctx.AimNormal, ctx.AimDirection, ctx.AimHit, ctx.Points, pickPaths, alt, target);
 
         if (spell.Mode == CastMode.Hold || spell.Mode == CastMode.Channel) _heldCastId = castId;
         if (spell.Mode != CastMode.Hold) Spend(index);   // Hold pays when released
@@ -406,7 +461,7 @@ public partial class SpellCaster : Node
     [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
     private void ReplicateBegin(int spellIndex, int castId, Vector3 origin, Vector3 aimPoint,
                                 Vector3 aimNormal, Vector3 aimDirection, bool aimHit, Vector3[] points,
-                                bool alt, NodePath targetPath)
+                                string[] pickPaths, bool alt, NodePath targetPath)
     {
         if (spellIndex < 0 || spellIndex >= Spells.Count) return;
         SpellDefinition spell = Spells[spellIndex];
@@ -425,11 +480,19 @@ public partial class SpellCaster : Node
             AimDirection = aimDirection,
             AimHit = aimHit,
             Points = points,
+            PointTargets = new Node3D[pickPaths.Length],
             IsAlt = alt,
             // Targets are sent as node paths: the same path finds the same entity on every machine
             Target = targetPath.IsEmpty ? null : GetNodeOrNull<Node3D>(targetPath),
         };
         if (!targetPath.IsEmpty && ctx.Target == null) return;   // the target is already gone here
+
+        for (int i = 0; i < pickPaths.Length; i++)
+        {
+            if (pickPaths[i] == "") continue;
+            ctx.PointTargets[i] = GetNodeOrNull<Node3D>(pickPaths[i]);
+            if (ctx.PointTargets[i] == null) return;   // an anchor it was bound to is already gone here
+        }
 
         if (spell.Mode == CastMode.Duration) ctx.Remaining = ctx.Stat(nameof(SpellDefinition.Duration));
         if (spell.Mode == CastMode.Delayed) ctx.Remaining = ctx.Stat(nameof(SpellDefinition.Delay));
@@ -438,6 +501,38 @@ public partial class SpellCaster : Node
 
         bool runs = spell.Mode != CastMode.Instant && spell.Mode != CastMode.MultiPoint;
         if (runs) _active[castId] = ctx;
+    }
+
+    // Host only: tell every machine (itself included) which bodies a chain hit, in order
+    public void BroadcastChain(SpellContext ctx, List<Node3D> hops)
+    {
+        if (!Multiplayer.IsServer() || hops.Count == 0) return;
+
+        var paths = new string[hops.Count];
+        for (int i = 0; i < hops.Count; i++) paths[i] = hops[i].GetPath().ToString();
+        Rpc(MethodName.ReceiveChain, ctx.SpellIndex, ctx.CastOrigin, paths);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveChain(int spellIndex, Vector3 origin, string[] paths)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host routes chains
+        if (spellIndex < 0 || spellIndex >= Spells.Count) return;
+
+        var hops = new List<Node3D>();
+        foreach (string path in paths)
+            if (GetNodeOrNull<Node3D>(path) is Node3D hop) hops.Add(hop);
+
+        var ctx = new SpellContext
+        {
+            Caster = _player,
+            Spell = Spells[spellIndex],
+            Mods = _mods,
+            SpellIndex = spellIndex,
+            CastOrigin = origin,
+            Authoritative = Multiplayer.IsServer(),
+        };
+        Spells[spellIndex].ShowChain(ctx, hops.ToArray());
     }
 
     [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]

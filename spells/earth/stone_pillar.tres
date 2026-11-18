@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StonePillarSpell" format=3 uid="uid://duipdyqnq1sf0"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_2gd4m"]
+[ext_resource type="Script" uid="uid://ddwv8vnx4legx" path="res://spells/earth/StonePillarSpell.cs" id="2_7i628"]
+
+[resource]
+script = ExtResource("2_7i628")
+MaxHeight = 10.0
+RiseSpeed = 4.0
+PillarRadius = 1.5
+SpellName = "Stone Pillar"
+Element = 10
+RechargeTime = 4.0
+metadata/_custom_type_script = "uid://ddwv8vnx4legx"

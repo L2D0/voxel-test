@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="AnchorTestSpell" format=3 uid="uid://drwt1nhd23nlf"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_kv6cc"]
+[ext_resource type="Script" uid="uid://bib5qgvutgnlh" path="res://spells/test/AnchorTestSpell.cs" id="2_cni31"]
+
+[resource]
+script = ExtResource("2_cni31")
+metadata/_custom_type_script = "uid://bib5qgvutgnlh"

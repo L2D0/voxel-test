@@ -1,14 +1,26 @@
 [gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://bibwxa5mti5sw"]
 
 [ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_ywuv7"]
-[ext_resource type="Resource" uid="uid://clvjdww7l5nhk" path="res://spells/stone_pillar.tres" id="2_l2dwt"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_7d0t2"]
 [ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_xxnqu"]
+[ext_resource type="Script" uid="uid://ddwv8vnx4legx" path="res://spells/earth/StonePillarSpell.cs" id="3_8186v"]
 [ext_resource type="Resource" uid="uid://chd6t3st6yoe7" path="res://skills/earth_bedrock.tres" id="4_7d0t2"]
+
+[sub_resource type="Resource" id="Resource_ae1s4"]
+script = ExtResource("3_8186v")
+MaxHeight = 10.0
+RiseSpeed = 4.0
+PillarRadius = 1.5
+SpellName = "Stone Pillar"
+Element = 10
+RechargeTime = 4.0
+Cost = 20.0
+metadata/_custom_type_script = "uid://ddwv8vnx4legx"
 
 [sub_resource type="Resource" id="Resource_l2dwt"]
 script = ExtResource("1_ywuv7")
 Element = 10
-Spell = ExtResource("2_l2dwt")
+Spell = SubResource("Resource_ae1s4")
 Stat = "MaxHeight"
 Op = 1
 Value = 0.25

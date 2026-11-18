@@ -13,6 +13,7 @@ public partial class AnchorTestSpell : SpellDefinition
         Element = Element.Crystal;
         Mode = CastMode.Instant;
         Range = 25f;
+        MaxActive = 3;   // a fourth replaces the oldest
         MaxCharges = 3;
         RechargeTime = 2f;
     }
@@ -22,9 +23,15 @@ public partial class AnchorTestSpell : SpellDefinition
 
     public override bool Begin(SpellContext ctx)
     {
-        var anchor = new TestAnchor { Lifetime = ctx.Stat(nameof(Lifetime)) };
+        var anchor = new TestAnchor
+        {
+            Lifetime = ctx.Stat(nameof(Lifetime)),
+            // Same name on every machine, so a bind made on one machine finds this anchor on the others
+            Name = $"Anchor_{ctx.Caster.Name}_{ctx.CastId}",
+        };
         ctx.Caster.GetTree().CurrentScene.AddChild(anchor);
         anchor.GlobalPosition = ctx.AimPoint;
+        ctx.Track(anchor);
         return true;
     }
 }

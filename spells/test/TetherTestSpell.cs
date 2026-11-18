@@ -22,8 +22,8 @@ public partial class TetherTestSpell : SpellDefinition
         PointCount = 2;
         Range = 30f;
         RechargeTime = 4f;
-        AltMode = AltMode.CancelPicks;   // right click throws away the first pick
-        SnapsToAnchors = true;           // picks lock onto test anchors near the crosshair
+        SnapsTo = SnapKind.Anchor;   // picks lock onto test anchors near the crosshair
+        RequiresSnap = true;     // and only anchors count, like the Crystal binds
     }
 
     public override bool IsTargetValid(SpellContext ctx)

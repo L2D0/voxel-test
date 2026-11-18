@@ -1,13 +1,33 @@
 [gd_resource type="Resource" script_class="SkillNode" format=3 uid="uid://1rjnx77lv8if"]
 
 [ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="1_tioid"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_5xy7h"]
 [ext_resource type="Script" uid="uid://cihtbjv3bo06f" path="res://skills/SkillNode.cs" id="2_hu31d"]
-[ext_resource type="Resource" uid="uid://cuad0dnq8qlkb" path="res://spells/heatburst.tres" id="2_xctjo"]
+[ext_resource type="Resource" uid="uid://baaw3mbo6m7f1" path="res://combat/statuses/brittle.tres" id="3_3x1te"]
+[ext_resource type="Resource" uid="uid://uc1g8t10vknc" path="res://combat/statuses/burning.tres" id="4_mwvth"]
+[ext_resource type="Resource" uid="uid://dt5fskkgt4181" path="res://effects/embers.tres" id="5_737q6"]
+[ext_resource type="PackedScene" uid="uid://bhn226rmh7bxt" path="res://spells/heatburst_projectile.tscn" id="6_kwuco"]
+[ext_resource type="Script" uid="uid://bmhtak708x82c" path="res://spells/HeatburstSpell.cs" id="7_kxwl1"]
+
+[sub_resource type="Resource" id="Resource_x278v"]
+script = ExtResource("7_kxwl1")
+ProjectileScene = ExtResource("6_kwuco")
+Radius = 8.0
+Knockback = 14.0
+SelfKnockback = 14.0
+SelfUpwardBias = 0.8
+LeavesEffect = ExtResource("5_737q6")
+SpellName = "Heatburst"
+Element = 1
+RechargeTime = 1.2
+AppliesStatuses = Array[ExtResource("2_5xy7h")]([ExtResource("3_3x1te"), ExtResource("4_mwvth")])
+Cost = 15.0
+metadata/_custom_type_script = "uid://bmhtak708x82c"
 
 [sub_resource type="Resource" id="Resource_xctjo"]
 script = ExtResource("1_tioid")
 Element = 1
-Spell = ExtResource("2_xctjo")
+Spell = SubResource("Resource_x278v")
 Stat = "Radius"
 Op = 1
 Value = 0.15

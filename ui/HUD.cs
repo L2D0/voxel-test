@@ -79,13 +79,14 @@ public partial class HUD : Control
         float dt = (float)delta;
         bool aiming = _player.IsAiming;
         bool holding = _caster != null && _caster.IsHolding;
+        bool targeting = _caster != null && _caster.AimReplaced;
         bool lowHealth = _health.Current <= _health.MaxHealth * LowHealthFraction;
 
         if (aiming || holding || lowHealth || GameState.MenuOpen) _wake = HoldTime;
         else _wake -= dt;
         _alpha = Fade(_alpha, _wake > 0f, dt);
 
-        if (aiming || holding) _aimWake = 0.6f;
+        if (aiming || holding || targeting) _aimWake = 0.6f;
         else _aimWake -= dt;
         _crosshairAlpha = Fade(_crosshairAlpha, _aimWake > 0f, dt);
 
@@ -113,6 +114,7 @@ public partial class HUD : Control
             DrawBars(new Vector2(ringCenter.X + r + RingToBars, ringCenter.Y));
         }
         if (_crosshairAlpha > 0.001f) DrawCrosshair();
+        if (_crosshairAlpha > 0.001f) DrawTargetMarker();
     }
 
     // left = where the bars start; the bar stack is centred vertically on left.Y
@@ -195,6 +197,26 @@ public partial class HUD : Control
             DrawLine(c + d * gap, c + d * (gap + length), ink, 2f);
         }
         DrawCircle(c, 1.5f, ink);
+    }
+
+    // Corner brackets around whatever a targeted spell is locked onto
+    private void DrawTargetMarker()
+    {
+        Node3D target = _caster?.CurrentTarget;
+        Camera3D camera = GetViewport().GetCamera3D();
+        if (target == null || !IsInstanceValid(target) || camera == null) return;
+        if (camera.IsPositionBehind(target.GlobalPosition)) return;
+
+        Vector2 p = camera.UnprojectPosition(target.GlobalPosition);
+        var ink = new Color(Ink, _crosshairAlpha);
+        const float size = 16f, arm = 6f;
+
+        foreach (Vector2 corner in new[] { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(1, 1), new Vector2(-1, 1) })
+        {
+            Vector2 c = p + corner * size;
+            DrawLine(c, c - new Vector2(corner.X * arm, 0f), ink, 2f);
+            DrawLine(c, c - new Vector2(0f, corner.Y * arm), ink, 2f);
+        }
     }
 
     private float BarLength(float points) => Mathf.Min(points * PixelsPerPoint, MaxBarLength);
