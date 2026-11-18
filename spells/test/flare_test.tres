@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="FlareTestSpell" format=3 uid="uid://deba630rssplc"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_m8bct"]
+[ext_resource type="Script" uid="uid://dsuf1o2347ur3" path="res://spells/test/FlareTestSpell.cs" id="2_epw1i"]
+
+[resource]
+script = ExtResource("2_epw1i")
+metadata/_custom_type_script = "uid://dsuf1o2347ur3"

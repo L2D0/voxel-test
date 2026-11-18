@@ -32,6 +32,18 @@ public partial class Mana : Node
         return true;
     }
 
+    // Channel upkeep: takes what it can, returns false once there's nothing left
+    public bool Drain(float amount)
+    {
+        if (amount <= 0f) return true;
+        _delay = RegenDelay;
+        if (Current <= 0f) return false;
+
+        Current = Mathf.Max(Current - amount, 0f);
+        EmitSignal(SignalName.Changed, Current, MaxMana);
+        return Current > 0f;
+    }
+
     // Callable from any machine; the owner applies it
     public void Restore(float amount)
     {

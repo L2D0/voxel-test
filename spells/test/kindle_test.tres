@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="KindleTestSpell" format=3 uid="uid://crcls63fdltpy"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_djwj2"]
+[ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="2_ly3oh"]
+[ext_resource type="Script" uid="uid://ddrrn4cpr8txy" path="res://combat/DamageAmp.cs" id="2_tgtd2"]
+[ext_resource type="Script" uid="uid://dy45uuekgl6va" path="res://spells/test/KindleTestSpell.cs" id="3_tgtd2"]
+
+[sub_resource type="Resource" id="Resource_22gvv"]
+script = ExtResource("1_djwj2")
+metadata/_custom_type_script = "uid://lfrroovsosm1"
+
+[sub_resource type="Resource" id="Resource_is5vj"]
+script = ExtResource("2_ly3oh")
+Scope = 1
+Element = 1
+Stat = "Damage"
+Op = 1
+Value = 1.0
+metadata/_custom_type_script = "uid://bb6d7upji3aff"
+
+[resource]
+script = ExtResource("3_tgtd2")
+Buffs = Array[ExtResource("2_ly3oh")]([SubResource("Resource_is5vj")])
+SpellName = "KindleTestSpell"
+Element = 1
+AppliesStatuses = Array[ExtResource("1_djwj2")]([SubResource("Resource_22gvv")])
+metadata/_custom_type_script = "uid://dy45uuekgl6va"

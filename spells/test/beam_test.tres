@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="BeamTestSpell" format=3 uid="uid://bol5cn2y1ia5r"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_w0e38"]
+[ext_resource type="Script" uid="uid://cstomwc3qb28y" path="res://spells/test/BeamTestSpell.cs" id="2_i7487"]
+
+[resource]
+script = ExtResource("2_i7487")
+metadata/_custom_type_script = "uid://cstomwc3qb28y"

@@ -284,6 +284,10 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     // ---------- Spells ----------
 
+    // Where the player is looking right now. Works on every machine, since the camera pivot's rotation is synced.
+    public Vector3 LiveAimDirection => -_camera.GlobalBasis.Z;
+    public Vector3 LiveCastOrigin => _castPoint.GlobalPosition;
+
     public SpellContext BuildSpellContext()
     {
         _model.Rotation = new Vector3(0, _camera.Yaw, 0);   // face where you're casting
