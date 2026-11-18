@@ -25,6 +25,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     [ExportGroup("Facing")]
     [Export] public float TurnSpeed = 10f;
+    [ExportGroup("Death")]
+    [Export] public float RespawnDelay = 6f;   // time lying where you fell: the window to be revived
     [ExportGroup("Falling")]
     [Export] public float SafeFallSpeed = 12f;      // m/s at impact; slower never hurts (about a 7 m drop)
     [Export] public float LethalFallSpeed = 30f;    // m/s at impact that deals LethalFallDamage (about a 46 m drop)
@@ -39,6 +41,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     public bool IsAiming { get; private set; }
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen;
+    public bool IsDead => _health != null && _health.IsDead;
 
     private PlayerCamera _camera;
     private Node3D _model;
@@ -56,6 +59,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private float _coyoteTimer;
     private float _launchTimer; 
     private float _fallImmuneTimer;
+    private float _respawnTimer;
 
     // ---------- Setup ----------
 
@@ -82,6 +86,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         AddToGroup("players");
 
         _health.Died += OnDied;
+        _health.Revived += OnRevived;
 
         if (IsMultiplayerAuthority())
         {
@@ -135,20 +140,37 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     private void ApplyImpulse(Vector3 impulse)
     {
-        Velocity += impulse;
+        Velocity += impulse * EntityInfo.KnockbackScale(this);
         _launchTimer = 0.15f;   // ignore the ground briefly so friction can't eat the launch
     }
 
     // ---------- Health ----------
 
+    // Dying leaves your body where it fell for RespawnDelay seconds, long enough for someone
+    // to revive you. If nobody does, you come back at the spawn point.
     private void OnDied(Node source)
     {
-        if (IsMultiplayerAuthority())
-        {
-            GlobalPosition = _spawnPoint;   // my machine moves me
-            Velocity = Vector3.Zero;
-        }
-        if (Multiplayer.IsServer()) _health.Reset();   // the host owns health
+        _model.Rotation = new Vector3(Mathf.Pi / 2f, _model.Rotation.Y, 0f);   // placeholder: tip over
+        if (IsMultiplayerAuthority()) _respawnTimer = RespawnDelay;
+    }
+
+    // Revived on the spot, or restored at spawn: either way, stand back up
+    private void OnRevived()
+    {
+        _model.Rotation = new Vector3(0f, _model.Rotation.Y, 0f);
+        _respawnTimer = 0f;
+    }
+
+    // Owner only, while dead
+    private void TickRespawn(float dt)
+    {
+        _respawnTimer -= dt;
+        if (_respawnTimer > 0f) return;
+
+        GlobalPosition = _spawnPoint;      // my machine moves me
+        Velocity = Vector3.Zero;
+        _respawnTimer = float.MaxValue;    // don't ask twice while the host's answer is on its way
+        _health.RequestRespawn();          // the host restores my health
     }
 
     // ---------- Falling ----------
@@ -174,7 +196,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
-        bool canAct = !MenuOpen;
+        bool canAct = !MenuOpen && !IsDead;
+        if (IsDead) TickRespawn(dt);
 
         Vector2 input = canAct
             ? Input.GetVector("move_left", "move_right", "move_forward", "move_back")
@@ -186,6 +209,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         float maxSpeed = Stat(PlayerStat.MoveSpeed, MaxGroundSpeed) * (IsAiming ? AimSpeedMult : 1f);
         float wishSpeed = maxSpeed * inputStrength;
 
+        _launchTimer -= dt;
         _fallImmuneTimer -= dt;
         bool grounded = IsOnFloor() && _launchTimer <= 0f;
 
@@ -301,9 +325,10 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     private void UpdateFacing(Vector3 wishDir, float dt)
     {
+        if (IsDead) return;   // lying where they fell
         Vector3 rot = _model.Rotation;
 
-        if (_camera.FirstPerson)
+        if (_camera.FirstPerson || (_caster?.LocksFacing ?? false))
             rot.Y = _camera.Yaw;
         else if (IsAiming)
             rot.Y = Mathf.LerpAngle(rot.Y, _camera.Yaw, TurnSpeed * dt);

@@ -6,6 +6,7 @@ public partial class Health : Node
 {
     [Signal] public delegate void DamagedEventHandler(float amount, Node source);
     [Signal] public delegate void DiedEventHandler(Node source);
+    [Signal] public delegate void RevivedEventHandler();
     [Signal] public delegate void ChangedEventHandler(float current, float max);
 
     public const float MaxResistance = 0.75f;
@@ -193,6 +194,33 @@ public partial class Health : Node
         Broadcast(Max, 0f, null);
     }
 
+    // Bring someone back while they're down (Life's Revive). Host only.
+    public void Revive(float fraction = 1f)
+    {
+        if (!Multiplayer.IsServer() || !IsDead) return;
+        Broadcast(Mathf.Max(Max * fraction, 1f), 0f, null);
+    }
+
+    // A dead player's machine asking to come back once its respawn timer runs out
+    public void RequestRespawn()
+    {
+        if (Multiplayer.IsServer()) RespawnIfDead();
+        else RpcId(1, MethodName.ReceiveRespawnRequest);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveRespawnRequest()
+    {
+        if (!Multiplayer.IsServer()) return;
+        if (Multiplayer.GetRemoteSenderId() != GetParent().GetMultiplayerAuthority()) return;   // only for yourself
+        RespawnIfDead();
+    }
+
+    private void RespawnIfDead()
+    {
+        if (IsDead) Reset();   // already revived by someone? then there's nothing to do
+    }
+
     // ---------- Sync ----------
 
     private void Broadcast(float current, float damage, Node source)
@@ -217,7 +245,8 @@ public partial class Health : Node
 
         if (damage > 0f) EmitSignal(SignalName.Damaged, damage, source);
         EmitSignal(SignalName.Changed, Current, Max);
-        if (!wasDead && IsDead) EmitSignal(SignalName.Died, source);
+        if (!wasDead && IsDead) EmitSignal(SignalName.Died, source); 
+        if (wasDead && !IsDead) EmitSignal(SignalName.Revived);
     }
 
     public static Health Of(Node node) => node?.GetNodeOrNull<Health>("Health");

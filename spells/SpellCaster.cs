@@ -366,7 +366,7 @@ public partial class SpellCaster : Node
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!IsLocal || _player.MenuOpen) return;
+        if (!IsLocal || _player.MenuOpen || _player.IsDead) return;
 
         if (e.IsActionPressed("cast")) TryCast(false);
         else if (e.IsActionReleased("cast")) ReleaseCast();
