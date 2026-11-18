@@ -33,10 +33,21 @@ public partial class ModifierStack : Node
             return 0f;
         }
 
+        return Combine(raw.AsSingle(), mod => mod.AppliesTo(spell, stat));
+    }
+
+    // A player stat (max health, move speed...). The base comes from whatever owns the stat;
+    // only Scope = Player modifiers with a matching name apply.
+    public float GetPlayer(string stat, float baseValue) =>
+        Combine(baseValue, mod => mod.Scope == ModScope.Player && mod.Stat == stat);
+
+    // effective = (base + all Flat) * (1 + all Percent) * every Multiply
+    private float Combine(float baseValue, System.Func<StatModifier, bool> applies)
+    {
         float flat = 0f, percent = 0f, multiplier = 1f;
         foreach (var (mod, _) in _entries)
         {
-            if (!mod.AppliesTo(spell, stat)) continue;
+            if (!applies(mod)) continue;
 
             switch (mod.Op)
             {
@@ -45,8 +56,7 @@ public partial class ModifierStack : Node
                 case ModOp.Multiply: multiplier *= mod.Value; break;
             }
         }
-
-        return (raw.AsSingle() + flat) * (1f + percent) * multiplier;
+        return (baseValue + flat) * (1f + percent) * multiplier;
     }
 
     public override void _UnhandledInput(InputEvent e)

@@ -7,17 +7,36 @@ public partial class Mana : Node
 {
     [Signal] public delegate void ChangedEventHandler(float current, float max);
 
+    // Base values; the properties below are what's in effect after modifiers
     [Export] public float MaxMana = 100f;
     [Export] public float RegenPerSecond = 8f;
     [Export] public float RegenDelay = 1.5f;   // seconds after spending before regen starts again
 
     public float Current { get; private set; }
+    public float Max => Stat(PlayerStat.MaxMana, MaxMana);
+    public float Regen => Stat(PlayerStat.ManaRegen, RegenPerSecond);
+    public float Delay => Mathf.Max(Stat(PlayerStat.ManaRegenDelay, RegenDelay), 0f);
 
     private float _delay;
+    private ModifierStack _mods;
+
+    private float Stat(string stat, float baseValue) => _mods != null ? _mods.GetPlayer(stat, baseValue) : baseValue;
 
     private bool IsOwner => GetParent().IsMultiplayerAuthority();
 
-    public override void _Ready() => Current = MaxMana;
+    public override void _Ready()
+    {
+        _mods = GetParent().GetNodeOrNull<ModifierStack>("Modifiers");
+        if (_mods != null) _mods.Changed += OnModifiersChanged;
+        Current = Max;
+    }
+
+    // Max mana changed: trim down if needed, and let the HUD redraw the bar at its new length
+    private void OnModifiersChanged()
+    {
+        if (Current > Max) Current = Max;
+        EmitSignal(SignalName.Changed, Current, Max);
+    }
 
     public bool CanAfford(float amount) => Current >= amount;
 
@@ -27,8 +46,8 @@ public partial class Mana : Node
         if (Current < amount) return false;
 
         Current -= amount;
-        _delay = RegenDelay;
-        EmitSignal(SignalName.Changed, Current, MaxMana);
+        _delay = Delay;
+        EmitSignal(SignalName.Changed, Current, Max);
         return true;
     }
 
@@ -36,11 +55,11 @@ public partial class Mana : Node
     public bool Drain(float amount)
     {
         if (amount <= 0f) return true;
-        _delay = RegenDelay;
+        _delay = Delay;
         if (Current <= 0f) return false;
 
         Current = Mathf.Max(Current - amount, 0f);
-        EmitSignal(SignalName.Changed, Current, MaxMana);
+        EmitSignal(SignalName.Changed, Current, Max);
         return Current > 0f;
     }
 
@@ -62,13 +81,13 @@ public partial class Mana : Node
     private void Add(float amount)
     {
         float before = Current;
-        Current = Mathf.Min(Current + amount, MaxMana);
-        if (Current != before) EmitSignal(SignalName.Changed, Current, MaxMana);
+        Current = Mathf.Min(Current + amount, Max);
+        if (Current != before) EmitSignal(SignalName.Changed, Current, Max);
     }
 
     public override void _Process(double delta)
     {
-        if (!IsOwner || Current >= MaxMana) return;
+        if (!IsOwner || Current >= Max) return;
 
         float dt = (float)delta;
         if (_delay > 0f)
@@ -76,6 +95,6 @@ public partial class Mana : Node
             _delay -= dt;
             return;
         }
-        Add(RegenPerSecond * dt);
+        Add(Regen * dt);
     }
 }

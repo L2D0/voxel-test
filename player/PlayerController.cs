@@ -50,7 +50,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
     private float _coyoteTimer;
-    private float _launchTimer;
+    private float _launchTimer; 
+    private float _fallImmuneTimer;
 
     // ---------- Setup ----------
 

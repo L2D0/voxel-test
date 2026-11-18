@@ -10,12 +10,17 @@ public partial class Health : Node
 
     public const float MaxResistance = 0.75f;
 
-    [Export] public float MaxHealth = 100f;
+    [Export] public float MaxHealth = 100f;    // the base; Max is what's in effect after modifiers
     [Export] public Resistances Resistances;   // optional: base resistances for this kind of entity
 
     public float Current { get; private set; }
     public float Shield { get; private set; }   // total temporary HP across every shield
     public bool IsDead => Current <= 0f;
+
+    // Max health right now. Players' modifiers (gear, nodes, buffs) can change it; everything else uses the base.
+    public float Max => _mods != null ? _mods.GetPlayer(PlayerStat.MaxHealth, MaxHealth) : MaxHealth;
+
+    private ModifierStack _mods;   // only players have one
 
     // Resistance from gear and buffs, per instance, tagged with what granted it
     private readonly List<(object Source, DamageType Type, float Amount)> _bonusResistances = new();
@@ -29,7 +34,19 @@ public partial class Health : Node
     }
     private readonly List<ShieldLayer> _shields = new();
 
-    public override void _Ready() => Current = MaxHealth;
+    public override void _Ready()
+    {
+        _mods = GetParent().GetNodeOrNull<ModifierStack>("Modifiers");
+        if (_mods != null) _mods.Changed += OnModifiersChanged;
+        Current = Max;
+    }
+
+    // Max health went up or down. Raising it doesn't heal; lowering it below current HP trims HP down.
+    private void OnModifiersChanged()
+    {
+        if (Multiplayer.IsServer() && Current > Max) Broadcast(Max, 0f, null);
+        else EmitSignal(SignalName.Changed, Current, Max);   // the HUD redraws the bar at its new length
+    }
 
     // ---------- Resistances ----------
 
@@ -45,6 +62,7 @@ public partial class Health : Node
         if (type == DamageType.Pure) return 0f;
 
         float total = Resistances?.Get(type) ?? 0f;
+        if (_mods != null) total += _mods.GetPlayer(PlayerStat.Resist(type), 0f);   // gear and nodes
         foreach (var r in _bonusResistances)
             if (r.Type == type) total += r.Amount;
 
@@ -165,14 +183,14 @@ public partial class Health : Node
     public void Heal(float amount)
     {
         if (!Multiplayer.IsServer() || IsDead || amount <= 0f) return;
-        Broadcast(Mathf.Min(Current + amount, MaxHealth), 0f, null);
+        Broadcast(Mathf.Min(Current + amount, Max), 0f, null);
     }
 
     public void Reset()
     {
         if (!Multiplayer.IsServer()) return;
         _shields.Clear();
-        Broadcast(MaxHealth, 0f, null);
+        Broadcast(Max, 0f, null);
     }
 
     // ---------- Sync ----------
@@ -198,7 +216,7 @@ public partial class Health : Node
         Shield = shield;
 
         if (damage > 0f) EmitSignal(SignalName.Damaged, damage, source);
-        EmitSignal(SignalName.Changed, Current, MaxHealth);
+        EmitSignal(SignalName.Changed, Current, Max);
         if (!wasDead && IsDead) EmitSignal(SignalName.Died, source);
     }
 
