@@ -139,24 +139,28 @@ public partial class Health : Node
         Broadcast(current, dealt + absorbed, hit.Source);
     }
 
-    // HP spent on casting. The caster's machine asks the host; paid as Pure, so it can kill.
-    public void PayCost(float amount)
+    // Damage a player's own machine puts on its own player: HP costs (Pure) and fall damage (Physical).
+    // The owner asks the host, and the host checks it really is the owner asking.
+    public void TakeOwnDamage(float amount, DamageType type)
     {
         if (amount <= 0f) return;
-        if (Multiplayer.IsServer()) TakeCost(amount);
-        else RpcId(1, MethodName.RequestPayCost, amount);
+        if (Multiplayer.IsServer()) ApplyOwnDamage(amount, type);
+        else RpcId(1, MethodName.RequestOwnDamage, amount, (int)type);
     }
+
+    // HP spent on casting: Pure, so it skips resistances and shields, and it can kill
+    public void PayCost(float amount) => TakeOwnDamage(amount, DamageType.Pure);
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void RequestPayCost(float amount)
+    private void RequestOwnDamage(float amount, int type)
     {
         if (!Multiplayer.IsServer()) return;
-        if (Multiplayer.GetRemoteSenderId() != GetParent().GetMultiplayerAuthority()) return;   // only pay for yourself
-        TakeCost(amount);
+        if (Multiplayer.GetRemoteSenderId() != GetParent().GetMultiplayerAuthority()) return;   // only for yourself
+        ApplyOwnDamage(amount, (DamageType)type);
     }
 
-    private void TakeCost(float amount) =>
-        TakeDamage(new DamageInfo { Amount = amount, Type = DamageType.Pure, Source = GetParent() });
+    private void ApplyOwnDamage(float amount, DamageType type) =>
+        TakeDamage(new DamageInfo { Amount = amount, Type = type, Source = GetParent() });
 
     public void Heal(float amount)
     {

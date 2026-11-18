@@ -25,6 +25,11 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
 
     [ExportGroup("Facing")]
     [Export] public float TurnSpeed = 10f;
+    [ExportGroup("Falling")]
+    [Export] public float SafeFallSpeed = 12f;      // m/s at impact; slower never hurts (about a 7 m drop)
+    [Export] public float LethalFallSpeed = 30f;    // m/s at impact that deals LethalFallDamage (about a 46 m drop)
+    [Export] public float LethalFallDamage = 100f;
+    [Export] public float FallDamageCurve = 1.5f;   // above 1: small overshoots barely hurt, big ones ramp up fast
 
     // Spells change these temporarily (ice: low friction, wind: low gravity)
     public float GravityScale = 1f;
@@ -140,6 +145,22 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         if (Multiplayer.IsServer()) _health.Reset();   // the host owns health
     }
 
+    // ---------- Falling ----------
+
+    // Hitting the ground faster than SafeFallSpeed hurts, rising to LethalFallDamage at LethalFallSpeed.
+    // It's the speed at impact, not the height fallen, so anything that slows you first protects you.
+    private void Land(float speed)
+    {
+        if (speed <= SafeFallSpeed || _fallImmuneTimer > 0f) return;
+        if (Skills != null && Skills.HasFlag("FallDamageImmune")) return;   // Wind's early node
+
+        float t = Mathf.Clamp((speed - SafeFallSpeed) / (LethalFallSpeed - SafeFallSpeed), 0f, 1f);
+        _health.TakeOwnDamage(LethalFallDamage * Mathf.Pow(t, FallDamageCurve), DamageType.Physical);
+    }
+
+    // Spells that set you down gently (Tornado's drop, a Bubble popping) call this
+    public void GrantFallImmunity(float seconds) => _fallImmuneTimer = Mathf.Max(_fallImmuneTimer, seconds);
+
     // ---------- Movement ----------
 
     public override void _PhysicsProcess(double delta)
@@ -157,7 +178,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         float maxSpeed = MaxGroundSpeed * (IsAiming ? AimSpeedMult : 1f);
         float wishSpeed = maxSpeed * inputStrength;
 
-        _launchTimer -= dt;
+        _fallImmuneTimer -= dt;
         bool grounded = IsOnFloor() && _launchTimer <= 0f;
 
         // Jump buffer and coyote time
@@ -207,7 +228,10 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
         vel.X = horiz.X;
         vel.Z = horiz.Z;
         Velocity = vel;
+        bool wasAirborne = !IsOnFloor();          // still last frame's answer at this point
+        float fallSpeed = Mathf.Max(-vel.Y, 0f);  // speed going down, before the landing zeroes it
         MoveAndSlide();
+        if (wasAirborne && IsOnFloor()) Land(fallSpeed);
 
         UpdateFacing(wishDir, dt);
 
@@ -271,8 +295,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver
     {
         Vector3 rot = _model.Rotation;
 
-        if (_camera.FirstPerson || (_caster?.LocksFacing ?? false))
-            if (_camera.FirstPerson)
+        if (_camera.FirstPerson)
             rot.Y = _camera.Yaw;
         else if (IsAiming)
             rot.Y = Mathf.LerpAngle(rot.Y, _camera.Yaw, TurnSpeed * dt);
