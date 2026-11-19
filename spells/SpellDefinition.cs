@@ -44,6 +44,7 @@ public partial class SpellDefinition : Resource
     [Export] public bool RechargeAfterEnd = false;  // charges don't refill while a cast of this spell is running
     [Export] public bool AllowRecast = false;       // pressing cast while it's running calls Recast, then ends it
     [Export] public bool FaceAimWhileHeld = false;  // Hold and Channel: the player turns with the camera until released
+    [Export] public bool RequiresGround = false;    // can't be cast in the air; Hold and Channel also block jumping, and leaving the ground cancels them
 
     [ExportGroup("Targeting")]
     [Export] public bool RequiresTarget = false;    // can't be cast without a valid entity under the crosshair

@@ -8,8 +8,7 @@ public partial class Session : Node
     [Export] public MultiplayerSpawner Spawner;
     [Export] public Vector3 SpawnPoint = new Vector3(0, 70, 0);
     [Export] public bool FriendlyFire = false;   // world rule; chosen when creating a world once the main menu exists (4.7)
-    [Export] public Key FriendlyFireDebugKey = Key.F8;   // host only: flips it mid-game for testing
-
+    [Export] public Key FriendlyFireDebugKey = Key.F9;   // host only: flips it mid-game for testing (F8 is the editor's stop key)
     public override void _Ready()
     {
         if (PlayerScene == null || World == null || Players == null || Spawner == null)

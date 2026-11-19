@@ -102,6 +102,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         else
         {
             vel += GetGravity() * dt;   // no air control: knockback carries them
+            vel.Y = Mathf.Max(vel.Y, -Def.TerminalVelocity);
         }
 
         bool wasAirborne = !IsOnFloor();
@@ -174,6 +175,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     {
         Vector3 vel = Velocity;
         vel += GetGravity() * dt;
+        vel.Y = Mathf.Max(vel.Y, -Def.TerminalVelocity);
         if (IsOnFloor()) vel = new Vector3(vel.X * 0.8f, vel.Y, vel.Z * 0.8f);   // bodies slide to a stop
         Velocity = vel;
         MoveAndSlide();

@@ -56,6 +56,7 @@ public partial class EnemyDefinition : Resource
     [ExportGroup("Falling")]
     [Export] public float SafeFallSpeed = 12f;
     [Export] public float LethalFallSpeed = 30f;             // a fall this fast takes all its max health
+    [Export] public float TerminalVelocity = 55f;
 
     [ExportGroup("Death")]
     [Export] public float CorpseTime = 4f;                   // how long the body lies there before it goes

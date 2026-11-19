@@ -47,6 +47,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     [Export] public float SafeFallSpeed = 12f;      // m/s at impact; slower never hurts (about a 7 m drop)
     [Export] public float LethalFallSpeed = 30f;    // m/s at impact that deals LethalFallDamage (about a 46 m drop)
     [Export] public float LethalFallDamage = 100f;
+    [Export] public float TerminalVelocity = 55f;   // the fastest anything falls; well past lethal, but stops sky islands getting silly
     [Export] public float FallDamageCurve = 1.5f;   // above 1: small overshoots barely hurt, big ones ramp up fast
 
     // Spells change these temporarily (ice: low friction, wind: low gravity)
@@ -334,7 +335,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         Vector3 vel = Velocity;
         Vector3 horiz = new Vector3(vel.X, 0, vel.Z);
 
-        if (_jumpBufferTimer > 0f && _coyoteTimer > 0f)
+        if (_jumpBufferTimer > 0f && _coyoteTimer > 0f && !(_caster?.LocksJump ?? false))
         {
             // Jumping on the landing frame skips friction (that's the bhop), but trims excess speed
             float speed = horiz.Length();
@@ -367,6 +368,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
                 horiz = ApplyAirSteer(horiz, wishDir, dt);
 
             vel += GetGravity() * GravityScale * dt;
+                        vel.Y = Mathf.Max(vel.Y, -TerminalVelocity);
         }
 
         vel.X = horiz.X;

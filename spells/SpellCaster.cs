@@ -14,6 +14,10 @@ public partial class SpellCaster : Node
     public bool LocksFacing =>
         _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.FaceAimWhileHeld;
 
+    // Holding a spell that needs the caster's feet on the ground: no jumping until it's released
+    public bool LocksJump =>
+        _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.RequiresGround;
+
     // Right click belongs to the spell (alt fire) instead of aiming
     public bool AimReplaced => ActiveSpell != null && ActiveSpell.AltMode != AltMode.None;
 
@@ -289,6 +293,7 @@ public partial class SpellCaster : Node
         if (!IsLocal) return;   // upkeep, charges, preview and HUD are only for this machine's own player
 
         UpdateChannel(dt);
+        if (LocksJump && !_player.IsOnFloor()) CancelHeld();   // knocked into the air: a grounded cast is lost
         if (IsPicking && !_player.IsAiming) ClearPicks();   // letting go of aim abandons a MultiPoint cast
 
         SpellDefinition active = ActiveSpell;
@@ -334,7 +339,7 @@ public partial class SpellCaster : Node
         if (!show)
         {
             if (_preview != null) _preview.Visible = false;
-            _rangeBubble.Visible = false;
+            ShowChannelBubble();
             return;
         }
 
@@ -362,6 +367,21 @@ public partial class SpellCaster : Node
         }
     }
 
+    // A channel keeps its range bubble while held, so you can see when a target walks out of reach
+    private void ShowChannelBubble()
+    {
+        float range = 0f;
+        if (_heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held)
+            && held.Spell.Mode == CastMode.Channel && _player.IsAiming && !_player.MenuOpen)
+            range = held.Stat(nameof(SpellDefinition.Range));
+
+        _rangeBubble.Visible = range > 0f;
+        if (_rangeBubble.Visible)
+        {
+            _rangeBubble.GlobalPosition = _player.GlobalPosition;
+            _rangeBubble.Scale = Vector3.One * range;
+        }
+    }
     // ---------- Casting (owner) ----------
 
     public override void _UnhandledInput(InputEvent e)
@@ -398,6 +418,7 @@ public partial class SpellCaster : Node
         }
 
         if (_charges[ActiveIndex] < 1f || !CanPay(spell)) return;
+        if (spell.RequiresGround && !_player.IsOnFloor()) return;   // has to be cast standing
 
         SpellContext ctx = BuildContext(spell, alt);
         if (spell.RequiresTarget && ctx.Target == null) return;   // nothing under the crosshair
