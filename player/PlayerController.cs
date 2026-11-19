@@ -25,6 +25,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     [ExportGroup("Facing")]
     [Export] public float TurnSpeed = 10f;
+    [Export] public float CombatStanceTime = 3f;                            // seconds after a cast before you turn to run again
+    [Export(PropertyHint.Range, "0,1")] public float BackpedalSpeedMult = 0.75f;   // speed moving straight backwards in combat
     [ExportGroup("Death")]
     [Export] public float RespawnDelay = 6f;   // time lying where you fell: the window to be revived
     [ExportGroup("Falling")]
@@ -57,8 +59,14 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private Vector3 _spawnPoint;
     private float _jumpBufferTimer;
     private float _coyoteTimer;
-    private float _launchTimer; 
+    private float _launchTimer;
     private float _fallImmuneTimer;
+    private float _combatTimer;   // counts down after each cast
+
+    // Facing the camera instead of turning to run: right after casting, while aiming, or mid-cast.
+    // Taking damage doesn't count, so getting hit while running away doesn't whip you round.
+    public bool InCombatStance =>
+        _combatTimer > 0f || IsAiming || (_caster?.IsHolding ?? false) || (_caster?.IsPicking ?? false);
     private float _respawnTimer;
 
     // ---------- Setup ----------
@@ -78,6 +86,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
         _health = GetNode<Health>("Health");
         _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
+        if (_caster != null) _caster.Casted += () => _combatTimer = CombatStanceTime;
         _mods = GetNode<ModifierStack>("Modifiers");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
 
@@ -207,10 +216,12 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
         float maxSpeed = Stat(PlayerStat.MoveSpeed, MaxGroundSpeed) * (IsAiming ? AimSpeedMult : 1f);
+        if (InCombatStance) maxSpeed *= Mathf.Lerp(1f, BackpedalSpeedMult, Mathf.Clamp(input.Y, 0f, 1f));   // input.Y > 0 is backwards
         float wishSpeed = maxSpeed * inputStrength;
 
         _launchTimer -= dt;
         _fallImmuneTimer -= dt;
+        _combatTimer -= dt;
         bool grounded = IsOnFloor() && _launchTimer <= 0f;
 
         // Jump buffer and coyote time
@@ -330,7 +341,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         if (_camera.FirstPerson || (_caster?.LocksFacing ?? false))
             rot.Y = _camera.Yaw;
-        else if (IsAiming)
+        else if (InCombatStance)   // aiming, holding a cast, or just cast: face the camera, strafe and backpedal
             rot.Y = Mathf.LerpAngle(rot.Y, _camera.Yaw, TurnSpeed * dt);
         else if (wishDir != Vector3.Zero)
             rot.Y = Mathf.LerpAngle(rot.Y, Mathf.Atan2(-wishDir.X, -wishDir.Z), TurnSpeed * dt);
