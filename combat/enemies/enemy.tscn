@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ddtq0261ctnx2" path="res://combat/enemies/Enemy.cs" id="1_enemy"]
+[ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="2_health"]
+[ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="3_status"]
+[ext_resource type="Script" uid="uid://cnq0onn3uky0c" path="res://combat/EntityInfo.cs" id="4_info"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_nose"]
+size = Vector3(0.2, 0.2, 0.4)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_enemy"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+
+[node name="Enemy" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_enemy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_body")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_body")
+
+[node name="Nose" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -0.55)
+mesh = SubResource("BoxMesh_nose")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+
+[node name="Statuses" type="Node" parent="."]
+script = ExtResource("3_status")
+
+[node name="EntityInfo" type="Node" parent="."]
+script = ExtResource("4_info")
+
+[node name="HealthLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+billboard = 1
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_enemy")

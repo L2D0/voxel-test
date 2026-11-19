@@ -10,6 +10,9 @@
 [ext_resource type="PackedScene" uid="uid://bscbtgskk2873" path="res://combat/target_dummy.tscn" id="8_jsk3o"]
 [ext_resource type="PackedScene" uid="uid://bjcrl27d35gee" path="res://ui/NetworkMenu.tscn" id="9_6iypd"]
 [ext_resource type="PackedScene" uid="uid://ckudr8chj1kgo" path="res://player/player.tscn" id="9_tereu"]
+[ext_resource type="Script" uid="uid://b80auge8gtl0c" path="res://combat/enemies/EnemySpawner.cs" id="11_imku0"]
+[ext_resource type="PackedScene" path="res://combat/enemies/enemy.tscn" id="12_wlxy5"]
+[ext_resource type="Resource" path="res://combat/enemies/test_grunt.tres" id="13_3v7ru"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
 
@@ -44,3 +47,8 @@ Spawner = NodePath("../MultiplayerSpawner")
 
 [node name="NetworkMenu" parent="." unique_id=911934013 node_paths=PackedStringArray("World") instance=ExtResource("9_6iypd")]
 World = NodePath("../World")
+
+[node name="EnemySpawner" type="Node" parent="." unique_id=1515607197]
+script = ExtResource("11_imku0")
+EnemyScene = ExtResource("12_wlxy5")
+DebugEnemy = ExtResource("13_3v7ru")
