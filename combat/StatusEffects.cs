@@ -31,6 +31,31 @@ public partial class StatusEffects : Node
 
     public int StacksOf(StatusDefinition def) => _active.TryGetValue(def, out Instance inst) ? inst.Stacks : 0;
 
+    // ---------- Control ----------
+
+    public const float MaxSlow = 0.8f;   // all slows together never take more than this
+
+    public float Slow
+    {
+        get
+        {
+            float total = 0f;
+            foreach (Instance inst in _active.Values) total += inst.Def.SlowPerStack * inst.Stacks;
+            return Mathf.Min(total, MaxSlow);
+        }
+    }
+
+    public bool IsKnockedDown => Any(def => def.KnocksDown);
+    public bool IsStunned => Any(def => def.Stuns || def.KnocksDown);
+    public bool IsRooted => Any(def => def.Roots || def.Stuns || def.KnocksDown);
+
+    private bool Any(System.Func<StatusDefinition, bool> test)
+    {
+        foreach (Instance inst in _active.Values)
+            if (test(inst.Def)) return true;
+        return false;
+    }
+
     // Step 3 of the damage pipeline: how much this target's statuses boost a damage type
     public float AmplificationFor(DamageType type)
     {
@@ -47,6 +72,7 @@ public partial class StatusEffects : Node
     {
         if (!Multiplayer.IsServer() || def == null) return;
         if (_health != null && _health.IsDead) return;
+        if (def.IsHardControl && EntityInfo.WeightOf(GetParent()) == WeightClass.Boss) return;   // bosses shrug off stuns and roots
 
         if (!_active.TryGetValue(def, out Instance inst))
         {

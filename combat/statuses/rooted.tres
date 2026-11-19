@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="StatusDefinition" format=3]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_status"]
+
+[resource]
+script = ExtResource("1_status")
+DisplayName = "Rooted"
+Duration = 2.5
+Roots = true

@@ -294,6 +294,11 @@ public partial class SpellCaster : Node
 
         UpdateChannel(dt);
         if (LocksJump && !_player.IsOnFloor()) CancelHeld();   // knocked into the air: a grounded cast is lost
+        if (_player.IsStunned)
+        {
+            CancelHeld();    // a stun drops whatever you were holding
+            ClearPicks();
+        }
         if (IsPicking && !_player.IsAiming) ClearPicks();   // letting go of aim abandons a MultiPoint cast
 
         SpellDefinition active = ActiveSpell;
@@ -386,7 +391,7 @@ public partial class SpellCaster : Node
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!IsLocal || _player.MenuOpen || _player.IsDead) return;
+        if (!IsLocal || _player.MenuOpen || _player.IsDead || _player.IsStunned) return;
 
         if (e.IsActionPressed("cast")) TryCast(false);
         else if (e.IsActionReleased("cast")) ReleaseCast();

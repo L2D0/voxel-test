@@ -61,6 +61,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public float Visibility => IsCrouching ? CrouchVisibility : 1f;   // enemies' sight range scales by this
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen;
+    public bool IsStunned => _statuses?.IsStunned ?? false;
+    public bool IsRooted => _statuses?.IsRooted ?? false;
     public bool IsDead => _health != null && _health.IsDead;
 
     private PlayerCamera _camera;
@@ -68,6 +70,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private Marker3D _castPoint;
     private RayCast3D _aimRay;
     private Label _speedLabel;
+    private StatusEffects _statuses;
     private Health _health;
     private SpellCaster _caster;
     private Stamina _stamina;
@@ -108,6 +111,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         _castPoint = GetNode<Marker3D>("Model/CastPoint");
         _aimRay = GetNode<RayCast3D>("CameraPivot/SpringArm3D/Camera3D/AimRay");
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
+        _statuses = StatusEffects.Of(this);
+        if (_statuses != null) _statuses.Changed += UpdateKnockdownPose;
         _health = GetNode<Health>("Health");
         _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
         _stamina = GetNodeOrNull<Stamina>("Stamina");
@@ -255,6 +260,13 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         _model.Rotation = new Vector3(Mathf.Pi / 2f, _model.Rotation.Y, 0f);   // placeholder: tip over
         if (IsMultiplayerAuthority()) _respawnTimer = RespawnDelay;
     }
+    // Every machine: lie down while knocked down, get up when it ends
+    private void UpdateKnockdownPose()
+    {
+        if (IsDead) return;   // death has its own pose
+        float tip = (_statuses?.IsKnockedDown ?? false) ? Mathf.Pi / 2f : 0f;   // placeholder until animations exist
+        _model.Rotation = new Vector3(tip, _model.Rotation.Y, 0f);
+    }
 
     // Revived on the spot, or restored at spawn: either way, stand back up
     private void OnRevived()
@@ -298,12 +310,13 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
-        bool canAct = !MenuOpen && !IsDead;
+        bool canAct = !MenuOpen && !IsDead && !IsStunned;
         if (IsDead) TickRespawn(dt);
 
         Vector2 input = canAct
             ? Input.GetVector("move_left", "move_right", "move_forward", "move_back")
             : Vector2.Zero;
+        if (IsRooted) input = Vector2.Zero;
         float inputStrength = Mathf.Min(input.Length(), 1f);
         Vector3 wishDir = new Vector3(input.X, 0, input.Y).Rotated(Vector3.Up, _camera.Yaw).Normalized();
 
@@ -319,6 +332,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         if (InCombatStance) maxSpeed *= Mathf.Lerp(1f, BackpedalSpeedMult, Mathf.Clamp(input.Y, 0f, 1f));   // input.Y > 0 is backwards
         if (IsSprinting) maxSpeed *= SprintSpeedMult;
                 if (IsCrouching) maxSpeed *= CrouchSpeedMult;
+        maxSpeed *= 1f - (_statuses?.Slow ?? 0f);
         float wishSpeed = maxSpeed * inputStrength;
 
         _launchTimer -= dt;
@@ -328,8 +342,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         // Jump buffer and coyote time
         _jumpBufferTimer -= dt;
-        if (canAct && Input.IsActionJustPressed("jump")) _jumpBufferTimer = JumpBuffer;
-        if (grounded) _coyoteTimer = CoyoteTime;
+        if (canAct && !IsRooted && Input.IsActionJustPressed("jump")) _jumpBufferTimer = JumpBuffer; if (grounded) _coyoteTimer = CoyoteTime;
         else _coyoteTimer -= dt;
 
         Vector3 vel = Velocity;
@@ -439,7 +452,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     private void UpdateFacing(Vector3 wishDir, float dt)
     {
-        if (IsDead) return;   // lying where they fell
+        if (IsDead || IsStunned) return;   // lying where they fell, or stunned
         Vector3 rot = _model.Rotation;
 
         if (_camera.FirstPerson || (_caster?.LocksFacing ?? false))

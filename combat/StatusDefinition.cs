@@ -20,4 +20,13 @@ public partial class StatusDefinition : Resource
 
     [ExportGroup("Amplification")]
     [Export] public Godot.Collections.Array<DamageAmp> Amplifies = new();
+
+    [ExportGroup("Control")]
+    [Export(PropertyHint.Range, "0,1")] public float SlowPerStack = 0f;   // fraction of move speed taken per stack
+    [Export] public bool Roots = false;        // can't move or jump; can still turn, aim and cast
+    [Export] public bool Stuns = false;        // can't move, jump, turn or cast; a held cast drops
+    [Export] public bool KnocksDown = false;   // a stun that also puts them on the ground
+
+    // Bosses ignore these (slows still land)
+    public bool IsHardControl => Roots || Stuns || KnocksDown;
 }

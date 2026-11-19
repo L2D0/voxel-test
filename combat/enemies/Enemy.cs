@@ -83,16 +83,25 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
             return;
         }
 
-        Think(dt);
+        if (_statuses?.IsStunned ?? false)
+        {
+            CancelWindup();   // a stun interrupts an attack
+            Stop();
+            StopLooking();
+        }
+        else Think(dt);
 
+        Vector3 pose = Rotation;
+        pose.X = (_statuses?.IsKnockedDown ?? false) ? Mathf.Pi / 2f : 0f;   // placeholder: lying down
+        Rotation = pose;
         bool grounded = IsOnFloor() && _launchTimer <= 0f;
         Vector3 vel = Velocity;
 
         if (grounded)
         {
             Vector3 direction = WishDirection();
-            Vector3 wish = direction * Def.MoveSpeed * SpeedScale(dt, direction != Vector3.Zero);
-            Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(wish, Def.Acceleration * dt);
+            Vector3 wish = direction * Def.MoveSpeed * SpeedScale(dt, direction != Vector3.Zero)
+                         * (1f - (_statuses?.Slow ?? 0f)); Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(wish, Def.Acceleration * dt);
             vel.X = horiz.X;
             vel.Z = horiz.Z;
 
@@ -132,6 +141,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private Vector3 WishDirection()
     {
         if (_moveTo is not Vector3 target) return Vector3.Zero;
+        if (_statuses?.IsRooted ?? false) return Vector3.Zero;
         Vector3 to = Flat(target - GlobalPosition);
         return to.Length() <= _arriveDistance ? Vector3.Zero : to.Normalized();
     }
