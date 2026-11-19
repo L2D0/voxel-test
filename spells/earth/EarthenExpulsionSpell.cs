@@ -60,7 +60,7 @@ public partial class EarthenExpulsionSpell : SpellDefinition
         float range = ctx.Stat(nameof(Range));
         ctx.TickTimer = Mathf.Min(ctx.TickTimer + ctx.Stat(nameof(MarkerSpeed)) * dt, range);
 
-        Vector3 facing = ctx.Caster.LiveAimDirection;
+        Vector3 facing = ((ICaster)ctx.Caster).LiveAimDirection;
         facing = new Vector3(facing.X, 0f, facing.Z);
         if (facing.LengthSquared() < 0.0001f) facing = Vector3.Forward;
         Vector3 spot = ctx.Caster.GlobalPosition + facing.Normalized() * ctx.TickTimer;

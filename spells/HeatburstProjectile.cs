@@ -8,7 +8,7 @@ public partial class HeatburstProjectile : Node3D
     public SpellContext Ctx;
     public Vector3 Direction;
 
-    private PlayerController Caster => Ctx.Caster;
+    private PlayerController Caster => Ctx.Player;
 
     // Stats are locked in at cast time
     private float _speed, _lifetime, _radius, _damage, _knockback;

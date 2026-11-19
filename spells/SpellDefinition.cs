@@ -32,6 +32,7 @@ public partial class SpellDefinition : Resource
     [Export] public Godot.Collections.Array<StatusDefinition> AppliesStatuses = new();
     [Export] public CostType PaysWith = CostType.Mana;
     [Export] public float Cost = 0f;
+    [Export] public float NoiseRadius = 20f;   // how far enemies hear the cast; 0 = silent
 
     [ExportGroup("Timing")]
     [Export] public float ChargeTime = 0f;          // Hold: seconds to full power (0 = no charge-up)
@@ -72,7 +73,8 @@ public partial class SpellDefinition : Resource
 
 public class SpellContext
 {
-    public PlayerController Caster;
+    public Node3D Caster;                                           // a player or an enemy
+    public PlayerController Player => Caster as PlayerController;   // null when an enemy cast it
     public SpellDefinition Spell;
     public ModifierStack Mods;
     public int SpellIndex;
@@ -98,7 +100,7 @@ public class SpellContext
 
     // The effective value of a stat for this cast: base value plus every active modifier
     public float Stat(string name) => Mods != null ? Mods.Get(Spell, name) : Spell.Get(name).AsSingle();
-    public bool HasFlag(string flag) => Caster?.Skills != null && Caster.Skills.HasFlag(flag);
+    public bool HasFlag(string flag) => Player?.Skills != null && Player.Skills.HasFlag(flag);
 
     // Hold spells: 0 to 1, how far through the charge-up
     public float ChargeFraction
@@ -111,9 +113,9 @@ public class SpellContext
     }
 
     // Registers something this cast spawned, so the spell's MaxActive cap can remove the oldest
-    public void Track(Node node) => Casting.Track(SpellIndex, node);
+    public void Track(Node node) => Casting?.Track(SpellIndex, node);
 
-    public SpellCaster Casting => Caster.GetNode<SpellCaster>("Spellcaster");
+    public SpellCaster Casting => Caster.GetNodeOrNull<SpellCaster>("Spellcaster");   // null for enemies
 
     // Applies every status this spell carries to a target, if it can hold statuses
     public void ApplyStatuses(Node target)

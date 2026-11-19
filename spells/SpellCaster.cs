@@ -496,6 +496,7 @@ public partial class SpellCaster : Node
             Target = targetPath.IsEmpty ? null : GetNodeOrNull<Node3D>(targetPath),
         };
         if (!targetPath.IsEmpty && ctx.Target == null) return;   // the target is already gone here
+        if (Multiplayer.IsServer()) Noise.Emit(this, origin, spell.NoiseRadius, _player);
 
         for (int i = 0; i < pickPaths.Length; i++)
         {

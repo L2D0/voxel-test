@@ -36,11 +36,11 @@ public partial class BeamTestSpell : SpellDefinition
         if (ctx.Instance == null) return;
 
         // Live aim, not the aim at the moment of casting: the camera's rotation is synced, so this works everywhere
-        Vector3 from = ctx.Caster.LiveCastOrigin;
-        Vector3 to = from + ctx.Caster.LiveAimDirection * ctx.Stat(nameof(Range));
+        Vector3 from = ((ICaster)ctx.Caster).LiveCastOrigin;
+        Vector3 to = from + ((ICaster)ctx.Caster).LiveAimDirection * ctx.Stat(nameof(Range));
 
         var query = PhysicsRayQueryParameters3D.Create(from, to, SpellFx.AnythingMask,
-            new Godot.Collections.Array<Rid> { ctx.Caster.GetRid() });
+        new Godot.Collections.Array<Rid> { ((CollisionObject3D)ctx.Caster).GetRid() });
         var hit = ctx.Caster.GetWorld3D().DirectSpaceState.IntersectRay(query);
         if (hit.Count > 0) to = (Vector3)hit["position"];
 

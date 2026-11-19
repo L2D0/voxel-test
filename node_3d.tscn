@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://b80auge8gtl0c" path="res://combat/enemies/EnemySpawner.cs" id="11_imku0"]
 [ext_resource type="PackedScene" path="res://combat/enemies/enemy.tscn" id="12_wlxy5"]
 [ext_resource type="Resource" path="res://combat/enemies/test_grunt.tres" id="13_3v7ru"]
+[ext_resource type="Resource" path="res://combat/enemies/test_critter.tres" id="14_wlxy5"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
 
@@ -52,3 +53,4 @@ World = NodePath("../World")
 script = ExtResource("11_imku0")
 EnemyScene = ExtResource("12_wlxy5")
 DebugEnemy = ExtResource("13_3v7ru")
+DebugEnemy2 = ExtResource("14_wlxy5")

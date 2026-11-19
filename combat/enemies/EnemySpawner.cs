@@ -6,9 +6,11 @@ using Godot;
 public partial class EnemySpawner : Node
 {
     [Export] public PackedScene EnemyScene;              // enemies/enemy.tscn
-    [Export] public EnemyDefinition DebugEnemy;          // what the debug key spawns
+    [Export] public EnemyDefinition DebugEnemy;          // what F6 spawns
+    [Export] public EnemyDefinition DebugEnemy2;         // what F7 spawns
     [Export] public int DebugCount = 3;
     [Export] public Key DebugKey = Key.F6;
+    [Export] public Key DebugKey2 = Key.F7;
 
     private Node3D _enemies;
     private MultiplayerSpawner _spawner;
@@ -34,13 +36,13 @@ public partial class EnemySpawner : Node
 
     // ---------- Spawning ----------
 
-    // Host only
-    public void Spawn(EnemyDefinition def, Vector3 position)
+    // Host only. Returns the enemy so the caller can set it up further (packs).
+    public Enemy Spawn(EnemyDefinition def, Vector3 position)
     {
-        if (!Multiplayer.IsServer() || def == null || string.IsNullOrEmpty(def.ResourcePath)) return;
+        if (!Multiplayer.IsServer() || def == null || string.IsNullOrEmpty(def.ResourcePath)) return null;
 
         string name = $"Enemy_{_nextId++}";
-        _spawner.Spawn(new Godot.Collections.Array { def.ResourcePath, position, name });
+        return _spawner.Spawn(new Godot.Collections.Array { def.ResourcePath, position, name }) as Enemy;
     }
 
     // Every machine: build the enemy from what the host sent
@@ -60,31 +62,39 @@ public partial class EnemySpawner : Node
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (e is not InputEventKey { Pressed: true, Echo: false } key || key.Keycode != DebugKey) return;
-        if (DebugEnemy == null || !GameState.InGame) return;
+        if (e is not InputEventKey { Pressed: true, Echo: false } key || !GameState.InGame) return;
+
+        int which = key.Keycode == DebugKey ? 0 : key.Keycode == DebugKey2 ? 1 : -1;
+        EnemyDefinition def = DebugDef(which);
+        if (def == null) return;
 
         // Spawn in front of whoever pressed it
         Node3D me = FindLocalPlayer();
         if (me == null) return;
 
         Vector3 spot = me.GlobalPosition - me.GetNode<Node3D>("CameraPivot").GlobalBasis.Z * 6f + Vector3.Up * 2f;
-        if (Multiplayer.IsServer()) SpawnGroup(spot);
-        else RpcId(1, MethodName.RequestDebugSpawn, spot);
+        if (Multiplayer.IsServer()) SpawnGroup(def, spot);
+        else RpcId(1, MethodName.RequestDebugSpawn, which, spot);
     }
+
+    private EnemyDefinition DebugDef(int which) => which switch { 0 => DebugEnemy, 1 => DebugEnemy2, _ => null };
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void RequestDebugSpawn(Vector3 spot)
+    private void RequestDebugSpawn(int which, Vector3 spot)
     {
-        if (Multiplayer.IsServer()) SpawnGroup(spot);
+        if (Multiplayer.IsServer() && DebugDef(which) is EnemyDefinition def) SpawnGroup(def, spot);
     }
 
-    private void SpawnGroup(Vector3 spot)
+    private void SpawnGroup(EnemyDefinition def, Vector3 spot)
     {
+        var group = new System.Collections.Generic.List<Enemy>();
         for (int i = 0; i < DebugCount; i++)
         {
             float angle = Mathf.Tau * i / DebugCount;
-            Spawn(DebugEnemy, spot + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.5f);
+            if (Spawn(def, spot + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 1.5f) is Enemy enemy)
+                group.Add(enemy);
         }
+        if (def.PackAnimal) Enemy.FormPack(group);
     }
 
     private Node3D FindLocalPlayer()

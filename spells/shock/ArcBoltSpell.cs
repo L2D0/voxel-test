@@ -47,7 +47,7 @@ public partial class ArcBoltSpell : SpellDefinition
             damage *= falloff;
         }
 
-        ctx.Casting.BroadcastChain(ctx, hops);
+        ctx.Casting?.BroadcastChain(ctx, hops);   // enemies can't chain yet
         return true;
     }
 

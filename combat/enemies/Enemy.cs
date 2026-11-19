@@ -1,11 +1,13 @@
 using Godot;
 
 // The body every enemy shares. Its definition says what kind of enemy it is.
-// The host runs it (movement, physics, damage, death); every other machine sees its
-// position and facing through the MultiplayerSynchronizer, like a remote player.
+// The host runs it (movement, physics, damage, death, the brain in Enemy.Awareness.cs,
+// abilities in Enemy.Abilities.cs);
+// every other machine sees its position and facing through the MultiplayerSynchronizer.
 public partial class Enemy : CharacterBody3D, IImpulseReceiver
 {
     public EnemyDefinition Def { get; private set; }
+    public Vector3 Home { get; private set; }   // where it spawned; wandering and the leash centre on it
 
     private Health _health;
     private StatusEffects _statuses;
@@ -16,11 +18,15 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private float _launchTimer;
     private float _corpseTimer = -1f;
 
-    // Part 1 stand-in for real behaviour: wander in a random direction now and then,
-    // so there are moving targets to test against. Part 2 replaces it with awareness states.
-    private Vector3 _wanderDir;
-    private float _wanderTimer;
-    private readonly RandomNumberGenerator _rng = new();
+    // What the brain asks the body to do each frame
+    private Vector3? _moveTo;
+    private float _arriveDistance = 0.5f;
+    private float _speedScale = 1f;
+    private Vector3? _lookAt;
+
+    // Stamina: anything faster than walking drains it. Run dry and it's tired until it's full again.
+    private float _stamina;
+    private bool _exhausted;
 
     // ---------- Setup ----------
 
@@ -38,6 +44,9 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
 
     public override void _Ready()
     {
+        AddToGroup("enemies");
+        Home = GlobalPosition;
+
         _health = Health.Of(this);
         _statuses = StatusEffects.Of(this);
         _label = GetNode<Label3D>("HealthLabel");
@@ -52,6 +61,8 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         if (_statuses != null) _statuses.Changed += UpdateLabel;
 
         _rng.Randomize();
+        _senseTimer = _rng.Randf() * SenseInterval;   // spread the brains out so they don't all think on one frame
+        _stamina = Def?.MaxStamina ?? 0f;
         UpdateLabel();
 
         // Only the host moves enemies; everyone else is told where they are
@@ -72,17 +83,21 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
             return;
         }
 
+        Think(dt);
+
         bool grounded = IsOnFloor() && _launchTimer <= 0f;
         Vector3 vel = Velocity;
 
         if (grounded)
         {
-            Wander(dt);
-            Vector3 horiz = new(vel.X, 0f, vel.Z);
-            Vector3 wish = _wanderDir * Def.MoveSpeed;
-            horiz = horiz.MoveToward(wish, Def.Acceleration * dt);
+            Vector3 direction = WishDirection();
+            Vector3 wish = direction * Def.MoveSpeed * SpeedScale(dt, direction != Vector3.Zero);
+            Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(wish, Def.Acceleration * dt);
             vel.X = horiz.X;
             vel.Z = horiz.Z;
+
+            // Walked into a step or a wall: hop. Real pathfinding comes later.
+            if (wish != Vector3.Zero && IsOnWall()) vel.Y = Def.JumpVelocity;
         }
         else
         {
@@ -99,23 +114,57 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         Face(dt);
     }
 
-    private void Wander(float dt)
+    // The brain's handles on the body
+    private void MoveTo(Vector3 point, float speedScale = 1f, float arrive = 0.5f)
     {
-        _wanderTimer -= dt;
-        if (_wanderTimer > 0f) return;
-
-        _wanderTimer = _rng.RandfRange(2f, 5f);
-        bool stand = _rng.Randf() < 0.4f;   // sometimes just stand still
-        float angle = _rng.Randf() * Mathf.Tau;
-        _wanderDir = stand ? Vector3.Zero : new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+        _moveTo = point;
+        _speedScale = speedScale;
+        _arriveDistance = arrive;
     }
 
+    private void Stop() => _moveTo = null;
+    private void LookToward(Vector3 point) => _lookAt = point;
+    private void StopLooking() => _lookAt = null;
+
+    private bool Arrived(Vector3 point, float distance = 0.75f) => Flat(point - GlobalPosition).Length() <= distance;
+
+    private Vector3 WishDirection()
+    {
+        if (_moveTo is not Vector3 target) return Vector3.Zero;
+        Vector3 to = Flat(target - GlobalPosition);
+        return to.Length() <= _arriveDistance ? Vector3.Zero : to.Normalized();
+    }
+
+    // The speed the brain asked for, limited by stamina
+    private float SpeedScale(float dt, bool moving)
+    {
+        if (Def.MaxStamina <= 0f) return _speedScale;   // 0 = never tires
+
+        float scale = _exhausted ? Mathf.Min(_speedScale, Def.TiredSpeedScale) : _speedScale;
+        if (moving && scale > 1f)
+        {
+            _stamina -= dt;
+            if (_stamina <= 0f)
+            {
+                _stamina = 0f;
+                _exhausted = true;
+            }
+        }
+        else
+        {
+            _stamina = Mathf.Min(_stamina + Def.StaminaRegen * dt, Def.MaxStamina);
+            if (_stamina >= Def.MaxStamina) _exhausted = false;
+        }
+        return scale;
+    }
+
+    // Faces what it's looking at if anything, otherwise where it's going
     private void Face(float dt)
     {
-        Vector3 horiz = new(Velocity.X, 0f, Velocity.Z);
-        if (horiz.LengthSquared() < 0.25f) return;
+        Vector3 dir = _lookAt is Vector3 look ? Flat(look - GlobalPosition) : Flat(Velocity);
+        if (dir.LengthSquared() < 0.25f) return;
 
-        float target = Mathf.Atan2(-horiz.X, -horiz.Z);
+        float target = Mathf.Atan2(-dir.X, -dir.Z);
         Vector3 rot = Rotation;
         rot.Y = Mathf.LerpAngle(rot.Y, target, Def.TurnSpeed * dt);
         Rotation = rot;
@@ -139,6 +188,8 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         _health.TakeDamage(new DamageInfo { Amount = _health.Max * Mathf.Pow(t, 1.5f), Type = DamageType.Physical });
     }
 
+    private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);
+
     // ---------- Knockback ----------
 
     // Spell code that pushes enemies only runs on the host, so the host applies it straight away
@@ -155,14 +206,20 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private void OnDamaged(float amount, Node source)
     {
         _material.AlbedoColor = Colors.White;
-        CreateTween().TweenProperty(_material, "albedo_color", Def?.Tint ?? Colors.Gray, 0.2);
+        CreateTween().TweenProperty(_material, "albedo_color", BodyColor(), 0.2);
+
+        if (Multiplayer.IsServer()) ReactToDamage(amount, source as Node3D);   // the source is only known on the host
     }
 
     private void OnDied(Node source)
     {
         Rotation = new Vector3(Mathf.Pi / 2f, Rotation.Y, 0f);   // placeholder: tip over
-        _material.AlbedoColor = (Def?.Tint ?? Colors.Gray).Darkened(0.5f);
+        _telegraphing = false;
+        _windingUp = -1;
+        _material.AlbedoColor = BodyColor();
         _corpseTimer = Def?.CorpseTime ?? 4f;
+        _threat.Clear();
+        UpdateLabel();
         // Loot drops go here once items exist (pipeline 6.9)
     }
 
@@ -175,7 +232,9 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
 
     private void UpdateLabel()
     {
-        string text = $"{Def?.DisplayName ?? "Enemy"}\n{_health.Current:0} / {_health.Max:0}";
+        string text = $"{Def?.DisplayName ?? "Enemy"}";
+        if (!_health.IsDead && _shownState != AwareState.Idle) text += $"  [{_shownState}]";
+        text += $"\n{_health.Current:0} / {_health.Max:0}";
         if (_statuses != null)
             foreach (StatusEffects.Instance s in _statuses.Active)
                 text += $"\n{s.Def.DisplayName} x{s.Stacks}";
