@@ -195,10 +195,11 @@ public partial class Enemy
     {
         Vector3 to = other.GlobalPosition - GlobalPosition;
         dist = to.Length();
-        if (dist > Def.SightRange) return false;
+        float visibility = other is PlayerController player ? player.Visibility : 1f;   // crouching now, stealth nodes later
+        if (dist > Def.SightRange * visibility) return false;
 
         // Outside close range it only sees inside its cone
-        if (dist > Def.CloseSense && Def.SightAngle < 360f)
+        if (dist > Def.CloseSense * visibility && Def.SightAngle < 360f)
         {
             Vector3 flat = Flat(to);
             Vector3 forward = Flat(-GlobalBasis.Z).Normalized();

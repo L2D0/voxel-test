@@ -30,6 +30,17 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     [ExportGroup("Sprint")]
     [Export] public float SprintSpeedMult = 1.5f;
     [Export] public float SprintDrain = 20f;   // stamina per second
+
+    [ExportGroup("Crouch")]
+    [Export] public float CrouchHeight = 1.2f;
+    [Export] public float CrouchSpeedMult = 0.5f;
+    [Export] public float CrouchCameraDrop = 0.6f;
+    [Export(PropertyHint.Range, "0,1")] public float CrouchVisibility = 0.5f;   // enemies see you at this fraction of their range
+
+    [ExportGroup("Footsteps")]
+    [Export] public float WalkNoise = 5f;
+    [Export] public float SprintNoise = 12f;
+    [Export] public float FootstepInterval = 0.5f;
     [ExportGroup("Death")]
     [Export] public float RespawnDelay = 6f;   // time lying where you fell: the window to be revived
     [ExportGroup("Falling")]
@@ -45,6 +56,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     public bool IsAiming { get; private set; }
     public bool IsSprinting { get; private set; }
+    public bool IsCrouching { get; private set; }
+    public float Visibility => IsCrouching ? CrouchVisibility : 1f;   // enemies' sight range scales by this
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen;
     public bool IsDead => _health != null && _health.IsDead;
@@ -57,6 +70,11 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private Health _health;
     private SpellCaster _caster;
     private Stamina _stamina;
+    private CollisionShape3D _bodyShape;
+    private CapsuleShape3D _capsule;
+    private float _standHeight, _pivotHeight;
+    private Vector3 _lastPosition;
+    private float _stepDistance, _footstepTimer;
     private ModifierStack _mods;
 
     // A player stat after modifiers (see PlayerStat). The export is the base value.
@@ -92,6 +110,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         _health = GetNode<Health>("Health");
         _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
         _stamina = GetNodeOrNull<Stamina>("Stamina");
+        SetupBody();
         if (_caster != null) _caster.Casted += () => _combatTimer = CombatStanceTime;
         _mods = GetNode<ModifierStack>("Modifiers");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
@@ -114,7 +133,74 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
             DisableRemote();
         }
     }
+    // ---------- Crouch ----------
 
+    private void SetupBody()
+    {
+        _bodyShape = GetNode<CollisionShape3D>("CollisionShape3D");
+        _capsule = (CapsuleShape3D)_bodyShape.Shape.Duplicate();   // every player shares the scene's shape; give this one its own
+        _bodyShape.Shape = _capsule;
+        _standHeight = _capsule.Height;
+        _pivotHeight = _camera.Position.Y;
+        _lastPosition = GlobalPosition;
+    }
+
+    // The owner decides; every machine reshapes the body so collisions and the model match
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void SetCrouched(bool crouched)
+    {
+        IsCrouching = crouched;
+        float height = crouched ? Mathf.Max(CrouchHeight, _capsule.Radius * 2f) : _standHeight;
+        float drop = (_standHeight - height) / 2f;   // keeps the feet where they are
+
+        _capsule.Height = height;
+        _bodyShape.Position = new Vector3(0f, -drop, 0f);
+        _model.Scale = new Vector3(1f, height / _standHeight, 1f);   // placeholder squash until animations exist
+        _model.Position = new Vector3(0f, -drop, 0f);
+
+        float camera = _pivotHeight - (crouched ? CrouchCameraDrop : 0f);
+        CreateTween().TweenProperty(_camera, "position:y", camera, 0.12);
+    }
+
+    // Room to stand: a full-height capsule where the player is, against terrain and extrusions
+    private bool CanStand()
+    {
+        var query = new PhysicsShapeQueryParameters3D
+        {
+            Shape = new CapsuleShape3D { Radius = _capsule.Radius - 0.05f, Height = _standHeight - 0.1f },
+            Transform = new Transform3D(Basis.Identity, GlobalPosition + Vector3.Up * 0.05f),
+            CollisionMask = SpellFx.WorldLayer | SpellFx.StructureLayer,
+            Exclude = new Godot.Collections.Array<Rid> { GetRid() },
+        };
+        return GetWorld3D().DirectSpaceState.IntersectShape(query, 1).Count == 0;
+    }
+
+    // ---------- Footsteps ----------
+
+    // Host only, for every player: positions are synced, so the host can hear everyone from how fast they move.
+    // Crouching is silent, walking is quiet, sprinting and bhopping carry.
+    public override void _Process(double delta)
+    {
+        if (!Multiplayer.IsServer() || IsDead) return;
+
+        float dt = (float)delta;
+        Vector3 moved = GlobalPosition - _lastPosition;
+        _lastPosition = GlobalPosition;
+        _stepDistance += new Vector3(moved.X, 0f, moved.Z).Length();
+
+        _footstepTimer -= dt;
+        if (_footstepTimer > 0f) return;
+
+        float speed = _stepDistance / FootstepInterval;
+        _stepDistance = 0f;
+        _footstepTimer = FootstepInterval;
+        if (speed > 30f) return;   // a teleport or respawn, not footsteps
+
+        float radius = IsCrouching || speed < 1f ? 0f
+                     : speed > MaxGroundSpeed * 1.2f ? SprintNoise
+                     : WalkNoise;
+        if (radius > 0f) Noise.Emit(this, GlobalPosition, radius, this);
+    }
     // Another machine controls this player: we only display it
     private void DisableRemote()
     {
@@ -221,14 +307,17 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         Vector3 wishDir = new Vector3(input.X, 0, input.Y).Rotated(Vector3.Up, _camera.Yaw).Normalized();
 
         IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
-                                                                                                 // Sprint: pressing it breaks combat stance, so it's how you disengage. Casting again ends it.
+                                                                                                 // Crouch: hold to stay down. Standing back up waits for headroom.
+        bool wantCrouch = canAct && Input.IsActionPressed("crouch");
+        if (wantCrouch != IsCrouching && (wantCrouch || CanStand())) Rpc(MethodName.SetCrouched, wantCrouch);
+        // Sprint: pressing it breaks combat stance, so it's how you disengage. Casting again ends it.
         if (canAct && Input.IsActionJustPressed("sprint")) _combatTimer = 0f;
         IsSprinting = canAct && Input.IsActionPressed("sprint") && inputStrength > 0.1f && !InCombatStance
-                      && IsOnFloor() && (_stamina?.CanSprint ?? true);
-        if (IsSprinting) _stamina?.Drain(SprintDrain * dt);
+                      && IsOnFloor() && !IsCrouching && (_stamina?.CanSprint ?? true); if (IsSprinting) _stamina?.Drain(SprintDrain * dt);
         float maxSpeed = Stat(PlayerStat.MoveSpeed, MaxGroundSpeed) * (IsAiming ? AimSpeedMult : 1f);
         if (InCombatStance) maxSpeed *= Mathf.Lerp(1f, BackpedalSpeedMult, Mathf.Clamp(input.Y, 0f, 1f));   // input.Y > 0 is backwards
         if (IsSprinting) maxSpeed *= SprintSpeedMult;
+                if (IsCrouching) maxSpeed *= CrouchSpeedMult;
         float wishSpeed = maxSpeed * inputStrength;
 
         _launchTimer -= dt;
