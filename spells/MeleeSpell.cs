@@ -37,7 +37,7 @@ public partial class MeleeSpell : SpellDefinition
         {
             if (body == ctx.Caster) continue;
             // Allies are safe, except the one it's aiming at (a predator biting prey of its own side)
-            if (body != ctx.Target && Teams.AreAllies(ctx.Caster, body)) continue;
+            if (body != ctx.Target && !Teams.CanHarm(ctx.Caster, body)) continue;
             if (Mathf.Abs(body.GlobalPosition.Y - origin.Y) > MaxHeightGap) continue;
 
             Vector3 to = Flat(body.GlobalPosition - origin);

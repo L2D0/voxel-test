@@ -97,8 +97,7 @@ public partial class GroundEffect : Area3D
         body == Caster || body.IsInGroup("players") == _casterIsPlayer;
 
     private bool IsHarmed(Node3D body) =>
-        body == Caster ? Def.HarmsCaster : !IsAlly(body);
-
+        body == Caster ? Def.HarmsCaster : !IsAlly(body) || Teams.CanHarm(Caster, body);
     private void OnBodyEntered(Node3D body)
     {
         if (!_inside.Add(body)) return;

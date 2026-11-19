@@ -55,7 +55,7 @@ public partial class BeamTestSpell : SpellDefinition
         ctx.TickTimer = interval;
 
         if (hit.Count == 0 || hit["collider"].As<Node>() is not Node body) return;
-        if (Teams.AreAllies(ctx.Caster, body)) return;
+        if (!Teams.CanHarm(ctx.Caster, body)) return;
 
         Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(ctx, ctx.Stat(nameof(DamagePerSecond)) * interval));
         ctx.ApplyStatuses(body);

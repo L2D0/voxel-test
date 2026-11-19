@@ -17,10 +17,7 @@ public partial class VoxelChunk : Node3D
 
     public VoxelWorld World;
     public Vector3I Coord;
-    public float[] PendingSave;
     public bool HasData { get; private set; }
-    public bool Modified { get; private set; }
-    public float[] DensityData => _density;
 
     private float[] _density;
     private MeshInstance3D _meshInstance;
@@ -41,11 +38,10 @@ public partial class VoxelChunk : Node3D
     }
 
     // Called on the main thread when a background build finishes
-    public void ApplyBuild(float[] density, MeshData mesh, bool fromSave)
+    public void ApplyBuild(float[] density, MeshData mesh)
     {
         _density = density;
         HasData = true;
-        Modified = fromSave;
         ApplyMesh(mesh);
     }
 
@@ -53,11 +49,18 @@ public partial class VoxelChunk : Node3D
     public void Carve(Vector3 worldPoint, float radius) => World.Carve(worldPoint, radius);
     public void Fill(Vector3 worldPoint, float radius) => World.Fill(worldPoint, radius);
 
+    // A live edit on a chunk that's already built: change the density, rebuild the mesh
     public void ApplySphere(Vector3 worldPoint, float radius, bool fill)
     {
-        if (!HasData) return;   // still generating
+        if (!HasData) return;   // still generating; the world re-applies it when the build lands
+        if (ApplySphereTo(_density, worldPoint - GlobalPosition, radius, fill))
+            ApplyMesh(BuildMeshData(World, GlobalPosition, _density));
+    }
 
-        Vector3 center = worldPoint - GlobalPosition;
+    // Thread-safe: carves or fills a sphere in a density array. center is relative to the chunk's origin.
+    // Returns false if the sphere misses this chunk entirely.
+    public static bool ApplySphereTo(float[] density, Vector3 center, float radius, bool fill)
+    {
         int minX = Mathf.Max(-1, Mathf.FloorToInt(center.X - radius - 1));
         int minY = Mathf.Max(-1, Mathf.FloorToInt(center.Y - radius - 1));
         int minZ = Mathf.Max(-1, Mathf.FloorToInt(center.Z - radius - 1));
@@ -65,7 +68,7 @@ public partial class VoxelChunk : Node3D
         int maxY = Mathf.Min(Size, Mathf.CeilToInt(center.Y + radius + 1));
         int maxZ = Mathf.Min(Size, Mathf.CeilToInt(center.Z + radius + 1));
 
-        if (minX > maxX || minY > maxY || minZ > maxZ) return;
+        if (minX > maxX || minY > maxY || minZ > maxZ) return false;
 
         for (int z = minZ; z <= maxZ; z++)
             for (int y = minY; y <= maxY; y++)
@@ -73,12 +76,10 @@ public partial class VoxelChunk : Node3D
                 {
                     float dist = new Vector3(x, y, z).DistanceTo(center);
                     int i = Index(x, y, z);
-                    if (fill) _density[i] = Mathf.Max(_density[i], radius - dist);
-                    else _density[i] = Mathf.Min(_density[i], dist - radius);
+                    if (fill) density[i] = Mathf.Max(density[i], radius - dist);
+                    else density[i] = Mathf.Min(density[i], dist - radius);
                 }
-
-        Modified = true;
-        ApplyMesh(BuildMeshData(World, GlobalPosition, _density));
+        return true;
     }
 
     private void ApplyMesh(MeshData m)

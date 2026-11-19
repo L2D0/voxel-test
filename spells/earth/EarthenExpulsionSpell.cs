@@ -129,7 +129,7 @@ public partial class EarthenExpulsionSpell : SpellDefinition
 
         foreach (Node3D body in SpellFx.BodiesInSphere(ctx.Caster, ctx.AimPoint, ctx.Stat(nameof(Radius)), SpellFx.CharacterLayer))
         {
-            if (Teams.AreAllies(ctx.Caster, body)) continue;
+            if (!Teams.CanHarm(ctx.Caster, body)) continue;
 
             Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(ctx, damage));
             ctx.ApplyStatuses(body);

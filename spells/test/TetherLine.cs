@@ -32,7 +32,7 @@ public partial class TetherLine : MeshInstance3D
         var query = PhysicsRayQueryParameters3D.Create(A, B, SpellFx.DamageableMask);
         var hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
         if (hit.Count == 0 || hit["collider"].As<Node>() is not Node body) return;
-        if (Teams.AreAllies(Ctx.Caster, body)) return;
+        if (!Teams.CanHarm(Ctx.Caster, body)) return;
 
         Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(Ctx, DamagePerTick));
         Ctx.ApplyStatuses(body);

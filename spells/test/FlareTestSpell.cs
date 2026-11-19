@@ -52,7 +52,7 @@ public partial class FlareTestSpell : SpellDefinition
         if (!ctx.Authoritative) return;   // the host decides who got hit
         foreach (Node3D body in SpellFx.BodiesInSphere(ctx.Caster, ctx.AimPoint, radius))
         {
-            if (Teams.AreAllies(ctx.Caster, body)) continue;
+            if (!Teams.CanHarm(ctx.Caster, body)) continue;
             Health.Of(body)?.TakeDamage(DamageInfo.FromSpell(ctx, ctx.Stat(nameof(Damage))));
             ctx.ApplyStatuses(body);
         }

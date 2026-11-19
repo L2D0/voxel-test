@@ -11,6 +11,10 @@ public struct BiomeSample
     public float Blend;
 }
 
+// One terrain edit: a sphere carved out or filled in. The log of these is the whole difference
+// between the generated world and the current one.
+public readonly record struct TerrainEdit(Vector3 Point, float Radius, bool Fill);
+
 public partial class VoxelWorld : Node3D
 {
     [Export] public int Seed = 1337;
@@ -18,6 +22,7 @@ public partial class VoxelWorld : Node3D
     [Export] public int MinChunkY = 0;
     [Export] public int MaxChunkY = 2;
     [Export] public int ChunksAppliedPerFrame = 4;
+    [Export] public int SimDistance = 3;   // host: chunk radius kept loaded around other players, for enemies and physics
     [Export] public Godot.Collections.Array<BiomeSettings> Biomes = new();
     [Export] public float BiomeCellSize = 64f;
     [Export] public float BiomeBlend = 24f;
@@ -28,20 +33,27 @@ public partial class VoxelWorld : Node3D
         public Vector3I Coord;
         public float[] Density;
         public MeshData Mesh;
-        public bool FromSave;
+        public int EditsApplied;   // how many of this chunk's edits the build included
         public bool Failed;
     }
 
     private BiomeSettings[] _biomes;
     private readonly Dictionary<Vector3I, VoxelChunk> _chunks = new();
-    private readonly Dictionary<Vector3I, float[]> _savedEdits = new();
+    // Every edit since the world began, in order, on every machine. Chunks are rebuilt from the
+    // seed and then these replayed, so an unloaded chunk costs nothing to remember.
+    private readonly List<TerrainEdit> _edits = new();
+    private readonly Dictionary<Vector3I, List<TerrainEdit>> _editsByChunk = new();   // same edits, per chunk they touch
+    private const int EditsPerMessage = 512;   // late join: the log goes over in batches this size
     private readonly ConcurrentQueue<BuildResult> _finished = new();
     private readonly List<Vector3I> _toLoad = new();
 
     private int _drawDistance = 4;
     private int _activeJobs;
     private readonly int _maxJobs = Math.Max(1, System.Environment.ProcessorCount - 1);
-    private Vector3I _lastCenter = new Vector3I(int.MaxValue, 0, int.MaxValue);
+    // Where terrain is wanted: the local player at draw distance first, then (host only) every other
+    // player at SimDistance, so enemies and anything else the host simulates have ground under them.
+    private readonly List<(Vector3I Center, int Radius)> _areas = new();
+    private readonly List<(Vector3I Center, int Radius)> _lastAreas = new();
     private bool _dirty = true;
     private bool _spawnReady;
     private bool _initialized;
@@ -84,6 +96,8 @@ public partial class VoxelWorld : Node3D
 
         _initialized = true;
         _dirty = true;
+
+        if (Multiplayer.IsServer()) Multiplayer.PeerConnected += SendEditLog;
     }
 
     // The player this machine streams terrain around
@@ -105,18 +119,19 @@ public partial class VoxelWorld : Node3D
     {
         if (!_initialized || Player == null) return;
 
-        Vector3I center = ChunkColumnOf(Player.GlobalPosition);
-        if (center != _lastCenter || _dirty)
+        GatherAreas();
+        if (_dirty || !SameAsLast())
         {
-            _lastCenter = center;
+            _lastAreas.Clear();
+            _lastAreas.AddRange(_areas);
             _dirty = false;
-            UpdateChunkSet(center);
+            UpdateChunkSet();
         }
 
         StartJobs();
         ApplyFinished();
 
-        if (!_spawnReady) CheckSpawn(center);
+        if (!_spawnReady) CheckSpawn(_areas[0].Center);
     }
 
     // ---------- Streaming ----------
@@ -130,30 +145,79 @@ public partial class VoxelWorld : Node3D
         return dx * dx + dz * dz;
     }
 
-    private void UpdateChunkSet(Vector3I center)
+    private void GatherAreas()
     {
-        // Unload anything past the draw distance (+1 ring of slack)
-        int unloadSq = (_drawDistance + 1) * (_drawDistance + 1);
+        _areas.Clear();
+        _areas.Add((ChunkColumnOf(Player.GlobalPosition), _drawDistance));
+
+        if (!Multiplayer.IsServer()) return;   // clients only ever need their own surroundings
+        foreach (Node node in GetTree().GetNodesInGroup("players"))
+            if (node is Node3D other && other != Player)
+                _areas.Add((ChunkColumnOf(other.GlobalPosition), SimDistance));
+    }
+
+    private bool SameAsLast()
+    {
+        if (_areas.Count != _lastAreas.Count) return false;
+        for (int i = 0; i < _areas.Count; i++)
+            if (_areas[i] != _lastAreas[i]) return false;
+        return true;
+    }
+
+    // Inside any area, with this many rings of slack
+    private bool Wanted(Vector3I coord, int slack)
+    {
+        foreach ((Vector3I center, int radius) in _areas)
+        {
+            int r = radius + slack;
+            if (ColumnDistSq(coord, center) <= r * r) return true;
+        }
+        return false;
+    }
+
+    // Only what the local player can see gets drawn; chunks kept for other players just collide
+    private bool Shown(Vector3I coord)
+    {
+        int r = _drawDistance + 1;
+        return ColumnDistSq(coord, _areas[0].Center) <= r * r;
+    }
+
+    // Nearest first, and the local player's surroundings ahead of everyone else's
+    private int Priority(Vector3I coord)
+    {
+        int best = ColumnDistSq(coord, _areas[0].Center);
+        for (int i = 1; i < _areas.Count; i++)
+            best = Math.Min(best, ColumnDistSq(coord, _areas[i].Center) + 4);
+        return best;
+    }
+
+    private void UpdateChunkSet()
+    {
+        // Unload anything outside every area (+1 ring of slack); show or hide the rest
         var toRemove = new List<Vector3I>();
-        foreach (Vector3I coord in _chunks.Keys)
-            if (ColumnDistSq(coord, center) > unloadSq) toRemove.Add(coord);
+        foreach (var (coord, chunk) in _chunks)
+        {
+            if (!Wanted(coord, 1)) toRemove.Add(coord);
+            else chunk.Visible = Shown(coord);
+        }
         foreach (Vector3I coord in toRemove)
             UnloadChunk(coord);
 
-        // Queue everything inside the draw distance that isn't loaded, nearest first
+        // Queue everything inside an area that isn't loaded
         _toLoad.Clear();
-        int r = _drawDistance;
-        for (int dz = -r; dz <= r; dz++)
-            for (int dx = -r; dx <= r; dx++)
-            {
-                if (dx * dx + dz * dz > r * r) continue;
-                for (int y = MinChunkY; y <= MaxChunkY; y++)
+        var queued = new HashSet<Vector3I>();
+        foreach ((Vector3I center, int r) in _areas)
+            for (int dz = -r; dz <= r; dz++)
+                for (int dx = -r; dx <= r; dx++)
                 {
-                    var coord = new Vector3I(center.X + dx, y, center.Z + dz);
-                    if (!_chunks.ContainsKey(coord)) _toLoad.Add(coord);
+                    if (dx * dx + dz * dz > r * r) continue;
+                    for (int y = MinChunkY; y <= MaxChunkY; y++)
+                    {
+                        var coord = new Vector3I(center.X + dx, y, center.Z + dz);
+                        if (!_chunks.ContainsKey(coord) && queued.Add(coord)) _toLoad.Add(coord);
+                    }
                 }
-            }
-        _toLoad.Sort((a, b) => ColumnDistSq(a, center).CompareTo(ColumnDistSq(b, center)));
+        _toLoad.Sort((a, b) => Priority(a).CompareTo(Priority(b)));
     }
 
     private void StartJobs()
@@ -174,20 +238,23 @@ public partial class VoxelWorld : Node3D
             Coord = coord,
             Name = $"Chunk_{coord.X}_{coord.Y}_{coord.Z}",
             Position = (Vector3)(coord * VoxelChunk.Size),
+            Visible = Shown(coord),
         };
         AddChild(chunk);
         _chunks[coord] = chunk;
 
         Vector3 origin = chunk.Position;   // copied to a plain value for the thread
-        _savedEdits.Remove(coord, out float[] saved);
-        chunk.PendingSave = saved;
+        TerrainEdit[] edits = EditsFor(coord).ToArray();   // a snapshot: the thread never sees the live list
 
         _activeJobs++;
         Task.Run(() =>
         {
             try
             {
-                float[] density = saved ?? VoxelChunk.GenerateDensity(this, origin);
+                float[] density = VoxelChunk.GenerateDensity(this, origin);
+                foreach (TerrainEdit e in edits)
+                    VoxelChunk.ApplySphereTo(density, e.Point - origin, e.Radius, e.Fill);
+
                 MeshData mesh = VoxelChunk.BuildMeshData(this, origin, density);
                 _finished.Enqueue(new BuildResult
                 {
@@ -195,7 +262,7 @@ public partial class VoxelWorld : Node3D
                     Coord = coord,
                     Density = density,
                     Mesh = mesh,
-                    FromSave = saved != null,
+                    EditsApplied = edits.Length,
                 });
             }
             catch (Exception e)
@@ -217,7 +284,12 @@ public partial class VoxelWorld : Node3D
             // The chunk may have been unloaded while its job was running
             if (!_chunks.TryGetValue(r.Coord, out VoxelChunk current) || current != r.Chunk) continue;
 
-            r.Chunk.ApplyBuild(r.Density, r.Mesh, r.FromSave);
+            r.Chunk.ApplyBuild(r.Density, r.Mesh);
+
+            // Edits that arrived while the build was running
+            List<TerrainEdit> edits = EditsFor(r.Coord);
+            for (int i = r.EditsApplied; i < edits.Count; i++)
+                r.Chunk.ApplySphere(edits[i].Point, edits[i].Radius, edits[i].Fill);
             applied++;
         }
     }
@@ -226,13 +298,7 @@ public partial class VoxelWorld : Node3D
     {
         VoxelChunk chunk = _chunks[coord];
         _chunks.Remove(coord);
-
-        if (chunk.Modified && chunk.DensityData != null)
-            _savedEdits[coord] = chunk.DensityData;
-        else if (!chunk.HasData && chunk.PendingSave != null)
-            _savedEdits[coord] = chunk.PendingSave;   // unloaded before its saved data was applied
-
-        chunk.QueueFree();
+        chunk.QueueFree();   // nothing to keep: the edit log rebuilds it next time
     }
 
     private void CheckSpawn(Vector3I center)
@@ -340,10 +406,69 @@ public partial class VoxelWorld : Node3D
     }
 
     [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ApplyEdit(Vector3 point, float radius, bool fill) => Edit(point, radius, fill);
-    private void Edit(Vector3 worldPoint, float radius, bool fill)
+    private void ApplyEdit(Vector3 point, float radius, bool fill) => Edit(new TerrainEdit(point, radius, fill));
+
+    // Every machine: log it, then change whatever's loaded. Chunks that load later replay it.
+    private void Edit(TerrainEdit edit)
     {
-        foreach (VoxelChunk chunk in _chunks.Values)
-            chunk.ApplySphere(worldPoint, radius, fill);
+        _edits.Add(edit);
+
+        // Which chunks it touches, counting the one-sample border each chunk shares with its neighbours
+        float reach = edit.Radius + 2f;
+        Vector3I min = ChunkOf(edit.Point - Vector3.One * reach);
+        Vector3I max = ChunkOf(edit.Point + Vector3.One * reach);
+        for (int z = min.Z; z <= max.Z; z++)
+            for (int y = min.Y; y <= max.Y; y++)
+                for (int x = min.X; x <= max.X; x++)
+                {
+                    var coord = new Vector3I(x, y, z);
+                    if (!_editsByChunk.TryGetValue(coord, out List<TerrainEdit> list))
+                        _editsByChunk[coord] = list = new List<TerrainEdit>();
+                    list.Add(edit);
+
+                    if (_chunks.TryGetValue(coord, out VoxelChunk chunk))
+                        chunk.ApplySphere(edit.Point, edit.Radius, edit.Fill);
+                }
+    }
+
+    private static readonly List<TerrainEdit> NoEdits = new();
+    private List<TerrainEdit> EditsFor(Vector3I coord) =>
+        _editsByChunk.TryGetValue(coord, out List<TerrainEdit> list) ? list : NoEdits;
+
+    private static Vector3I ChunkOf(Vector3 p) => new(
+        Mathf.FloorToInt(p.X / VoxelChunk.Size),
+        Mathf.FloorToInt(p.Y / VoxelChunk.Size),
+        Mathf.FloorToInt(p.Z / VoxelChunk.Size));
+
+    // Read-only view for saving (pipeline 4.1)
+    public IReadOnlyList<TerrainEdit> EditLog => _edits;
+
+    // ---------- Late join ----------
+
+    // Host: a new player gets every edit so far, in batches, before any live ones
+    private void SendEditLog(long peer)
+    {
+        for (int start = 0; start < _edits.Count; start += EditsPerMessage)
+        {
+            int count = Math.Min(EditsPerMessage, _edits.Count - start);
+            var points = new Vector3[count];
+            var radii = new float[count];
+            var fills = new byte[count];
+            for (int i = 0; i < count; i++)
+            {
+                TerrainEdit e = _edits[start + i];
+                points[i] = e.Point;
+                radii[i] = e.Radius;
+                fills[i] = e.Fill ? (byte)1 : (byte)0;
+            }
+            RpcId(peer, MethodName.ReceiveEditBatch, points, radii, fills);
+        }
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveEditBatch(Vector3[] points, float[] radii, byte[] fills)
+    {
+        for (int i = 0; i < points.Length; i++)
+            Edit(new TerrainEdit(points[i], radii[i], fills[i] != 0));
     }
 }
