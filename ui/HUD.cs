@@ -21,6 +21,7 @@ public partial class HUD : Control
     [Export] public float HealthHeight = 9f;
     [Export] public float ManaHeight = 5f;
     [Export] public float ShieldHeight = 4f;
+    [Export] public float StaminaHeight = 4f;
     [Export] public float BarGap = 6f;
     [Export] public float TrailDelay = 0.5f;          // lost HP lingers this long before draining
     [Export] public float TrailSpeed = 80f;           // HP per second
@@ -32,11 +33,13 @@ public partial class HUD : Control
     [Export] public Color TrailFill = new(0.72f, 0.42f, 0.33f);
     [Export] public Color ShieldFill = new(0.62f, 0.82f, 0.96f);
     [Export] public Color ManaFill = new(0.63f, 0.69f, 0.71f);
+    [Export] public Color StaminaFill = new(0.72f, 0.74f, 0.58f);
     [Export] public Color Ink = new(0.87f, 0.83f, 0.72f);   // crosshair, text, cooldown ring
 
     private PlayerController _player;
     private Health _health;
     private Mana _mana;
+    private Stamina _stamina;
     private SpellCaster _caster;
 
     private float _wake, _alpha;
@@ -51,6 +54,7 @@ public partial class HUD : Control
         _player = GetParent().GetParent<PlayerController>();   // Player > CanvasLayer > HUD
         _health = Health.Of(_player);
         _mana = _player.GetNodeOrNull<Mana>("Mana");
+        _stamina = _player.GetNodeOrNull<Stamina>("Stamina");
         _caster = _player.GetNodeOrNull<SpellCaster>("Spellcaster");
 
         _health.Damaged += (amount, source) =>
@@ -82,7 +86,8 @@ public partial class HUD : Control
         bool targeting = _caster != null && _caster.AimReplaced;
         bool lowHealth = _health.Current <= _health.Max * LowHealthFraction;
 
-        if (aiming || holding || lowHealth || GameState.MenuOpen) _wake = HoldTime;
+        bool tired = _stamina != null && _stamina.Current < _stamina.Max;
+        if (aiming || holding || lowHealth || tired || GameState.MenuOpen) _wake = HoldTime;
         else _wake -= dt;
         _alpha = Fade(_alpha, _wake > 0f, dt);
 
@@ -120,7 +125,8 @@ public partial class HUD : Control
     // left = where the bars start; the bar stack is centred vertically on left.Y
     private void DrawBars(Vector2 left)
     {
-        float stack = HealthHeight + (_mana != null ? BarGap + ManaHeight : 0f);
+        float stack = HealthHeight + (_mana != null ? BarGap + ManaHeight : 0f)
+            + (_stamina != null ? BarGap + StaminaHeight : 0f);
         float y = left.Y - stack / 2f;
 
         var hp = new Rect2(left.X, y, BarLength(_health.Max), HealthHeight);
@@ -143,6 +149,15 @@ public partial class HUD : Control
             DrawBarBack(mana);
             DrawFill(mana, _mana.Current / _mana.Max, ManaFill);
             bottom = y + ManaHeight;
+        }
+
+        if (_stamina != null)
+        {
+            y = bottom + BarGap;
+            var stamina = new Rect2(left.X, y, BarLength(_stamina.Max), StaminaHeight);
+            DrawBarBack(stamina);
+            DrawFill(stamina, _stamina.Current / _stamina.Max, _stamina.Exhausted ? TrailFill : StaminaFill);
+            bottom = y + StaminaHeight;
         }
 
         // Active spell's name, tucked under the bars

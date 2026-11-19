@@ -24,9 +24,12 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     [Export(PropertyHint.Range, "0,1")] public float HopSpeedRetention = 0.85f;
 
     [ExportGroup("Facing")]
-    [Export] public float TurnSpeed = 10f;
+        [Export] public float TurnSpeed = 10f;
     [Export] public float CombatStanceTime = 3f;                            // seconds after a cast before you turn to run again
     [Export(PropertyHint.Range, "0,1")] public float BackpedalSpeedMult = 0.75f;   // speed moving straight backwards in combat
+    [ExportGroup("Sprint")]
+    [Export] public float SprintSpeedMult = 1.5f;
+    [Export] public float SprintDrain = 20f;   // stamina per second
     [ExportGroup("Death")]
     [Export] public float RespawnDelay = 6f;   // time lying where you fell: the window to be revived
     [ExportGroup("Falling")]
@@ -41,6 +44,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public float AirControlScale = 1f;
 
     public bool IsAiming { get; private set; }
+    public bool IsSprinting { get; private set; }
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen;
     public bool IsDead => _health != null && _health.IsDead;
@@ -51,7 +55,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private RayCast3D _aimRay;
     private Label _speedLabel;
     private Health _health;
-    private SpellCaster _caster; 
+    private SpellCaster _caster;
+    private Stamina _stamina;
     private ModifierStack _mods;
 
     // A player stat after modifiers (see PlayerStat). The export is the base value.
@@ -86,6 +91,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         _speedLabel = GetNodeOrNull<Label>("%SpeedLabel");
         _health = GetNode<Health>("Health");
         _caster = GetNodeOrNull<SpellCaster>("Spellcaster");
+        _stamina = GetNodeOrNull<Stamina>("Stamina");
         if (_caster != null) _caster.Casted += () => _combatTimer = CombatStanceTime;
         _mods = GetNode<ModifierStack>("Modifiers");
         Skills = GetNodeOrNull<SkillTree>("SkillTree");
@@ -215,8 +221,14 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         Vector3 wishDir = new Vector3(input.X, 0, input.Y).Rotated(Vector3.Up, _camera.Yaw).Normalized();
 
         IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
+                                                                                                 // Sprint: pressing it breaks combat stance, so it's how you disengage. Casting again ends it.
+        if (canAct && Input.IsActionJustPressed("sprint")) _combatTimer = 0f;
+        IsSprinting = canAct && Input.IsActionPressed("sprint") && inputStrength > 0.1f && !InCombatStance
+                      && IsOnFloor() && (_stamina?.CanSprint ?? true);
+        if (IsSprinting) _stamina?.Drain(SprintDrain * dt);
         float maxSpeed = Stat(PlayerStat.MoveSpeed, MaxGroundSpeed) * (IsAiming ? AimSpeedMult : 1f);
         if (InCombatStance) maxSpeed *= Mathf.Lerp(1f, BackpedalSpeedMult, Mathf.Clamp(input.Y, 0f, 1f));   // input.Y > 0 is backwards
+        if (IsSprinting) maxSpeed *= SprintSpeedMult;
         float wishSpeed = maxSpeed * inputStrength;
 
         _launchTimer -= dt;

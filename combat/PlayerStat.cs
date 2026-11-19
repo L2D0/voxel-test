@@ -8,6 +8,8 @@ public static class PlayerStat
     public const string MaxMana = "MaxMana";
     public const string ManaRegen = "ManaRegen";             // per second
     public const string ManaRegenDelay = "ManaRegenDelay";   // seconds after spending
+    public const string MaxStamina = "MaxStamina";
+    public const string StaminaRegen = "StaminaRegen";       // per second
 
     // Movement
     public const string MoveSpeed = "MoveSpeed";             // top ground speed
