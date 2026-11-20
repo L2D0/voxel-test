@@ -12,8 +12,12 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private Health _health;
     private StatusEffects _statuses;
     private Label3D _label;
-    private MeshInstance3D _mesh;
-    private StandardMaterial3D _material;
+    private MeshInstance3D _mesh;            // the placeholder capsule
+    private StandardMaterial3D _material;    // its colour
+    private Node3D _model;                   // the definition's model, if it has one
+    private AnimationPlayer _anim;
+    private StandardMaterial3D _overlay;     // tints a model without touching its textures: flash, telegraph, corpse
+    private float _hopTimer;
 
     private float _launchTimer;
     private float _corpseTimer = -1f;
@@ -40,6 +44,23 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         health.Resistances = def.Resistances;
 
         GetNode<EntityInfo>("EntityInfo").Weight = def.Weight;
+
+        // Body size. Shapes are shared between instances of the scene, so each enemy gets its own.
+        float height = Mathf.Max(def.BodyHeight, def.BodyRadius * 2f);
+        GetNode<CollisionShape3D>("CollisionShape3D").Shape = new CapsuleShape3D { Radius = def.BodyRadius, Height = height };
+        var placeholder = GetNode<MeshInstance3D>("MeshInstance3D");
+        placeholder.Mesh = new CapsuleMesh { Radius = def.BodyRadius, Height = height };
+        GetNode<Node3D>("HealthLabel").Position = new Vector3(0f, height / 2f + 0.5f, 0f);
+
+        if (def.Model == null) return;
+
+        // The origin is the middle of the capsule; models are built standing on y = 0
+        placeholder.Visible = false;
+        _model = def.Model.Instantiate<Node3D>();
+        _model.Name = "Model";
+        _model.Position = new Vector3(0f, -height / 2f, 0f);
+        _model.Scale = Vector3.One * def.ModelScale;
+        AddChild(_model);
     }
 
     public override void _Ready()
@@ -54,6 +75,13 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
 
         _material = new StandardMaterial3D { AlbedoColor = Def?.Tint ?? Colors.Gray };
         _mesh.MaterialOverride = _material;
+        _overlay = new StandardMaterial3D
+        {
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            AlbedoColor = Colors.Transparent,
+        };
+        if (_model != null) SetupModel();
 
         _health.Damaged += OnDamaged;
         _health.Changed += (current, max) => UpdateLabel();
@@ -100,13 +128,22 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         if (grounded)
         {
             Vector3 direction = WishDirection();
-            Vector3 wish = direction * Def.MoveSpeed * SpeedScale(dt, direction != Vector3.Zero)
-                         * (1f - (_statuses?.Slow ?? 0f)); Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(wish, Def.Acceleration * dt);
-            vel.X = horiz.X;
-            vel.Z = horiz.Z;
+            float scale = SpeedScale(dt, direction != Vector3.Zero) * (1f - (_statuses?.Slow ?? 0f));
 
-            // Walked into a step or a wall: hop. Real pathfinding comes later.
-            if (wish != Vector3.Zero && IsOnWall()) vel.Y = Def.JumpVelocity;
+            if (Def.Movement == MovementStyle.Hop)
+            {
+                vel = Hop(vel, direction, scale, dt);
+            }
+            else
+            {
+                Vector3 wish = direction * Def.MoveSpeed * scale;
+                Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(wish, Def.Acceleration * dt);
+                vel.X = horiz.X;
+                vel.Z = horiz.Z;
+
+                // Walked into a step or a wall: hop. Real pathfinding comes later.
+                if (wish != Vector3.Zero && IsOnWall()) vel.Y = Def.JumpVelocity;
+            }
         }
         else
         {
@@ -122,6 +159,27 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
 
         if (wasAirborne && IsOnFloor()) Land(fallSpeed);
         Face(dt);
+    }
+
+    // Hop movement: sits still between hops, then leaps toward where the brain wants to go.
+    // Running (scale above 1) makes hops longer, flatter and closer together.
+    private Vector3 Hop(Vector3 vel, Vector3 direction, float scale, float dt)
+    {
+        Vector3 horiz = new Vector3(vel.X, 0f, vel.Z).MoveToward(Vector3.Zero, Def.Acceleration * 2f * dt);
+        vel.X = horiz.X;
+        vel.Z = horiz.Z;
+
+        _hopTimer -= dt;   // only counts down on the ground, so the pause starts at landing
+        if (direction == Vector3.Zero || _hopTimer > 0f) return vel;
+
+        float lift = Def.HopLift * (scale > 1.01f ? Def.SprintHopLift : 1f);
+        Vector3 push = direction * Def.MoveSpeed * scale;
+        _hopTimer = Def.HopPause / Mathf.Max(scale, 0.1f);
+        _launchTimer = 0.1f;   // off the ground cleanly, so the next frame doesn't count as landed
+
+        float airtime = 2f * lift / Mathf.Max(-GetGravity().Y, 0.1f);
+        Rpc(MethodName.PlayHop, airtime);
+        return new Vector3(push.X, lift, push.Z);
     }
 
     // The brain's handles on the body
@@ -218,7 +276,10 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private void OnDamaged(float amount, Node source)
     {
         _material.AlbedoColor = Colors.White;
-        CreateTween().TweenProperty(_material, "albedo_color", BodyColor(), 0.2);
+        _overlay.AlbedoColor = new Color(1f, 1f, 1f, 0.7f);
+        Tween flash = CreateTween().SetParallel();
+        flash.TweenProperty(_material, "albedo_color", BodyColor(), 0.2);
+        flash.TweenProperty(_overlay, "albedo_color", OverlayColor(), 0.2);
 
         if (Multiplayer.IsServer()) ReactToDamage(amount, source as Node3D);   // the source is only known on the host
     }
@@ -228,7 +289,8 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         Rotation = new Vector3(Mathf.Pi / 2f, Rotation.Y, 0f);   // placeholder: tip over
         _telegraphing = false;
         _windingUp = -1;
-        _material.AlbedoColor = BodyColor();
+        ShowBodyColor();
+        _anim?.Pause();
         _corpseTimer = Def?.CorpseTime ?? 4f;
         _threat.Clear();
         UpdateLabel();
@@ -240,6 +302,67 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     {
         _corpseTimer -= dt;
         if (_corpseTimer <= 0f) QueueFree();
+    }
+
+    // ---------- Model and animation (every machine) ----------
+
+    private void SetupModel()
+    {
+        ApplyOverlay(_model);
+        _anim = FindAnimator(_model);
+        if (_anim == null) return;
+
+        if (_anim.HasAnimation(Def.IdleAnimation))
+            _anim.GetAnimation(Def.IdleAnimation).LoopMode = Animation.LoopModeEnum.Linear;
+        _anim.AnimationFinished += name =>
+        {
+            if (name.ToString() == Def.HopAnimation) PlayIdle();
+        };
+        PlayIdle();
+    }
+
+    private void ApplyOverlay(Node node)
+    {
+        if (node is GeometryInstance3D geometry) geometry.MaterialOverlay = _overlay;
+        foreach (Node child in node.GetChildren()) ApplyOverlay(child);
+    }
+
+    private static AnimationPlayer FindAnimator(Node node)
+    {
+        if (node is AnimationPlayer player) return player;
+        foreach (Node child in node.GetChildren())
+            if (FindAnimator(child) is AnimationPlayer found) return found;
+        return null;
+    }
+
+    private void PlayIdle()
+    {
+        if (_anim != null && !_health.IsDead && _anim.HasAnimation(Def.IdleAnimation))
+            _anim.Play(Def.IdleAnimation, 0.15);
+    }
+
+    // The host says when each hop starts; everyone plays it stretched to fit the time in the air
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.UnreliableOrdered)]
+    private void PlayHop(float airtime)
+    {
+        if (_anim == null || _health.IsDead || !_anim.HasAnimation(Def.HopAnimation)) return;
+
+        float length = (float)_anim.GetAnimation(Def.HopAnimation).Length;
+        _anim.Play(Def.HopAnimation, 0.05, length / Mathf.Max(airtime + 0.1f, 0.1f));
+        _anim.Seek(0, true);   // restart it even if the last hop is still playing
+    }
+
+    // Placeholder colour and model overlay together
+    private void ShowBodyColor()
+    {
+        _material.AlbedoColor = BodyColor();
+        _overlay.AlbedoColor = OverlayColor();
+    }
+
+    private Color OverlayColor()
+    {
+        if (_health.IsDead) return new Color(0f, 0f, 0f, 0.45f);
+        return _telegraphing ? new Color(TelegraphColor, 0.5f) : Colors.Transparent;
     }
 
     private void UpdateLabel()

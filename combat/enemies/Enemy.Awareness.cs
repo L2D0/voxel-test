@@ -21,7 +21,7 @@ public partial class Enemy
     private const float SenseInterval = 0.2f;
     private const float MidSenseInterval = 0.5f, MidDistance = 30f;
     private const float FarSenseInterval = 1f, FarDistance = 60f;
-    private const float EyeHeight = 0.6f;
+    private float EyeHeight => (Def?.BodyHeight ?? 2f) * 0.3f;   // grunts keep 0.6; small things see from lower down
     private const float SwitchMargin = 1.25f;   // a new target needs this much more threat to steal its attention
     private const uint SightBlockers = SpellFx.WorldLayer | SpellFx.StructureLayer;   // terrain and extrusions, not bodies
 

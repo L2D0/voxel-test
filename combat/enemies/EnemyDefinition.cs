@@ -1,5 +1,7 @@
 using Godot;
 
+public enum MovementStyle { Walk, Hop }
+
 // Everything that makes one kind of enemy different from another. A moose and a spider are two
 // of these files running the same Enemy code.
 [GlobalClass]
@@ -13,12 +15,26 @@ public partial class EnemyDefinition : Resource
     [Export] public bool Persistent = false;                 // livestock, pets, mounts: always saved
     [Export] public Color Tint = new(0.55f, 0.35f, 0.3f);    // placeholder body colour until models exist
 
+    [ExportGroup("Body")]
+    [Export] public float BodyRadius = 0.5f;                 // collision capsule
+    [Export] public float BodyHeight = 2f;
+    [Export] public PackedScene Model;                       // the hand-made model; empty = placeholder capsule
+    [Export] public float ModelScale = 1f;
+    [Export] public string IdleAnimation = "idle";
+    [Export] public string HopAnimation = "hop";
+
     [ExportGroup("Movement")]
+    [Export] public MovementStyle Movement = MovementStyle.Walk;
     [Export] public float MoveSpeed = 3.5f;
     [Export] public float ChaseSpeedScale = 1.6f;            // chasing and fleeing run faster than walking
     [Export] public float Acceleration = 10f;
     [Export] public float TurnSpeed = 8f;
     [Export] public float JumpVelocity = 5.5f;               // hops up a step when it walks into one
+
+    [ExportGroup("Hopping")]
+    [Export] public float HopLift = 2.5f;                    // upward speed of a hop at walking pace
+    [Export(PropertyHint.Range, "0.2,1")] public float SprintHopLift = 0.8f;   // running hops are flatter and longer
+    [Export] public float HopPause = 0.35f;                  // rest between hops at walking pace; shorter when running
 
     [ExportGroup("Stamina")]
     [Export] public float MaxStamina = 12f;                  // seconds of running faster than walking; 0 = never tires

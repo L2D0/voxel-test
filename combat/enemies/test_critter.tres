@@ -17,12 +17,15 @@ Response = 2
 
 [resource]
 script = ExtResource("1_def")
-DisplayName = "Test Critter"
+DisplayName = "Rabbit"
 MaxHealth = 25.0
 Weight = 0
 Tags = Array[String](["Prey"])
 Tint = Color(0.45, 0.6, 0.35, 1)
-MoveSpeed = 4.0
+MoveSpeed = 1.5
+ChaseSpeedScale = 4.5
+MaxStamina = 3.0
+TiredSpeedScale = 1.5
 SightRange = 16.0
 SightAngle = 300.0
 CloseSense = 4.0
