@@ -1,14 +1,17 @@
-[gd_resource type="Resource" script_class="MeleeSpell" format=3]
+[gd_resource type="Resource" script_class="MeleeSpell" format=3 uid="uid://d0lf6nr341lcy"]
 
-[ext_resource type="Script" path="res://spells/MeleeSpell.cs" id="1_melee"]
+[ext_resource type="Script" uid="uid://b6gqoeviruejj" path="res://spells/MeleeSpell.cs" id="1_melee"]
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="2_status"]
+[ext_resource type="Resource" path="res://combat/statuses/knocked_down.tres" id="3_down"]
 
 [resource]
 script = ExtResource("1_melee")
-SpellName = "Slam"
-Element = 10
 Damage = 14.0
 Reach = 3.0
 Arc = 360.0
 Knockback = 6.0
 KnockUp = 4.0
 SwingColor = Color(0.8, 0.6, 0.35, 0.7)
+SpellName = "Slam"
+Element = 10
+AppliesStatuses = Array[ExtResource("2_status")]([ExtResource("3_down")])

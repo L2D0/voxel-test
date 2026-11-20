@@ -1,10 +1,8 @@
 [gd_resource type="Resource" script_class="ArcBoltSpell" format=3 uid="uid://ce5m8xps52ar6"]
 
 [ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_b3p1m"]
-[ext_resource type="Resource" path="res://combat/statuses/stunned.tres" id="2_j6jrm"]
 [ext_resource type="Script" uid="uid://c2vlh7opldsrg" path="res://spells/shock/ArcBoltSpell.cs" id="2_re1ie"]
 
 [resource]
 script = ExtResource("2_re1ie")
-AppliesStatuses = Array[ExtResource("1_b3p1m")]([ExtResource("2_j6jrm")])
 metadata/_custom_type_script = "uid://c2vlh7opldsrg"
