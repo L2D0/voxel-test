@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://qrd2elpuflsd" path="res://combat/enemies/EnemyAbility.cs" id="3_ability"]
 [ext_resource type="Script" uid="uid://dl6m2a36ji6b5" path="res://combat/enemies/LootEntry.cs" id="4_4g0m1"]
 [ext_resource type="Resource" path="res://combat/enemies/abilities/bite.tres" id="4_bite"]
-[ext_resource type="Resource" path="res://combat/enemies/abilities/slam.tres" id="5_slam"]
+[ext_resource type="Resource" uid="uid://d0lf6nr341lcy" path="res://combat/enemies/abilities/slam.tres" id="5_slam"]
 [ext_resource type="Script" uid="uid://bh36lk0vvtxlv" path="res://combat/enemies/SpawnRule.cs" id="6_tpp3q"]
 
 [sub_resource type="Resource" id="Resource_bite"]

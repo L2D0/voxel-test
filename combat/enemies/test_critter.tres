@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://dl6m2a36ji6b5" path="res://combat/enemies/LootEntry.cs" id="1_e6tp0"]
 [ext_resource type="Script" uid="uid://qrd2elpuflsd" path="res://combat/enemies/EnemyAbility.cs" id="1_ma0dg"]
 [ext_resource type="Script" uid="uid://xda8ou0nuban" path="res://combat/enemies/TagResponse.cs" id="2_resp"]
+[ext_resource type="PackedScene" uid="uid://bqh2ckwd5mil8" path="res://combat/enemies/rabbit.glb" id="3_lhq72"]
 [ext_resource type="Script" uid="uid://bh36lk0vvtxlv" path="res://combat/enemies/SpawnRule.cs" id="3_ma0dg"]
 
 [sub_resource type="Resource" id="Resource_vs_player"]
@@ -22,6 +23,11 @@ MaxHealth = 25.0
 Weight = 0
 Tags = Array[String](["Prey"])
 Tint = Color(0.45, 0.6, 0.35, 1)
+BodyRadius = 0.18
+BodyHeight = 0.4
+Model = ExtResource("3_lhq72")
+ModelScale = 0.45
+Movement = 1
 MoveSpeed = 1.5
 ChaseSpeedScale = 4.5
 MaxStamina = 3.0
