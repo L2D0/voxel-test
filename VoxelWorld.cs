@@ -443,6 +443,12 @@ public partial class VoxelWorld : Node3D
     // Read-only view for saving (pipeline 4.1)
     public IReadOnlyList<TerrainEdit> EditLog => _edits;
 
+    // Saved edits go back in before any chunk loads, through the same path as live ones
+    public void LoadEdits(IEnumerable<TerrainEdit> edits)
+    {
+        foreach (TerrainEdit edit in edits) Edit(edit);
+    }
+
     // ---------- Late join ----------
 
     // Host: a new player gets every edit so far, in batches, before any live ones

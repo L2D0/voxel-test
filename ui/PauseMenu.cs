@@ -10,7 +10,11 @@ public partial class PauseMenu : CanvasLayer
         _drawDistanceLabel = GetNode<Label>("%DrawDistanceLabel");
 
         GetNode<Button>("%ResumeButton").Pressed += Close;
-        GetNode<Button>("%QuitButton").Pressed += () => GetTree().Quit();
+        GetNode<Button>("%QuitButton").Pressed += () =>
+        {
+            GetTree().Root.PropagateNotification((int)NotificationWMCloseRequest);   // lets the host save first
+            GetTree().Quit();
+        };
 
         var slider = GetNode<HSlider>("%DrawDistanceSlider");
         slider.Value = Settings.DrawDistance;
