@@ -89,6 +89,8 @@ public partial class Session : Node
         if (peer == 1) LocalKey = key;
         else RpcId(peer, MethodName.ReceiveKey, key);   // so the player knows which waystones are theirs
 
+        SendWaystones(peer);
+
         if (WorldSave.Current == null || !WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave data)) return;
         if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
 
@@ -102,12 +104,10 @@ public partial class Session : Node
         if (WorldSave.Current == null || !_keys.TryGetValue(peer, out string key)) return;
         if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
 
-        WorldSave.Current.Players[key] = new WorldSave.PlayerSave
-        {
-            Position = player.GlobalPosition,
-            Health = Health.Of(player)?.Current ?? 0f,
-            Skills = player.Skills?.UnlockedIds() ?? System.Array.Empty<string>(),
-        };
+        WorldSave.PlayerSave save = SaveOf(key);
+        save.Position = player.GlobalPosition;
+        save.Health = Health.Of(player)?.Current ?? 0f;
+        save.Skills = player.Skills?.UnlockedIds() ?? System.Array.Empty<string>();
     }
 
     // The saved-player key of a player node (named after its peer id). Host only; "" if unknown.
@@ -123,6 +123,74 @@ public partial class Session : Node
 
     [Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
     private void ReceiveKey(string key) => LocalKey = key;
+
+    // ---------- Waystone lists ----------
+    // Each player keeps their own list of waystones they've used, under names they chose.
+    // The host owns the lists (they're saved with the player); each machine gets a copy of its own.
+
+    // This machine's own list: structure id -> name
+    public static Dictionary<string, string> LocalWaystones { get; private set; } = new();
+
+    // Host: a player's save entry, made if they don't have one yet
+    private static WorldSave.PlayerSave SaveOf(string key)
+    {
+        WorldSave.Current ??= WorldSave.CreateNew("default", 0, false);
+        if (!WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave save))
+            WorldSave.Current.Players[key] = save = new WorldSave.PlayerSave();
+        return save;
+    }
+
+    private void SendWaystones(long peer)
+    {
+        if (!_keys.TryGetValue(peer, out string key)) return;
+        var list = SaveOf(key).Waystones;
+        var ids = new string[list.Count];
+        var names = new string[list.Count];
+        int i = 0;
+        foreach (var (id, name) in list) { ids[i] = id; names[i] = name; i++; }
+
+        if (peer == 1) ReceiveWaystones(ids, names);
+        else RpcId(peer, MethodName.ReceiveWaystones, ids, names);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveWaystones(string[] ids, string[] names)
+    {
+        LocalWaystones = new Dictionary<string, string>();
+        for (int i = 0; i < ids.Length && i < names.Length; i++) LocalWaystones[ids[i]] = names[i];
+    }
+
+    // Host: does this player have this waystone on their list?
+    public static bool Knows(Node player, string id)
+    {
+        string key = KeyOf(player);
+        return key != "" && SaveOf(key).Waystones.ContainsKey(id);
+    }
+
+    // Host: add a waystone to a player's list under their name for it
+    public static void Learn(Node player, string id, string name)
+    {
+        if (player?.GetTree().GetFirstNodeInGroup("session") is not Session session) return;
+        string key = KeyOf(player);
+        if (key == "" || !long.TryParse(player.Name, out long peer)) return;
+
+        SaveOf(key).Waystones[id] = name;
+        session.SendWaystones(peer);
+    }
+
+    // Host: a structure broke, so it comes off every list, online or not
+    public static void ForgetStructure(Node any, string id)
+    {
+        if (WorldSave.Current == null || string.IsNullOrEmpty(id)) return;
+        if (any?.GetTree().GetFirstNodeInGroup("session") is not Session session) return;
+
+        foreach (var (key, save) in WorldSave.Current.Players)
+        {
+            if (!save.Waystones.Remove(id)) continue;
+            foreach (var (peer, online) in session._keys)
+                if (online == key) session.SendWaystones(peer);
+        }
+    }
 
     // Leaving keeps their character in the world for next time
     private void OnPeerDisconnected(long peer)

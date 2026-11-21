@@ -7,8 +7,9 @@ using System.Collections.Generic;
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 3;           // bump when the layout changes; old versions get read with their old layout
-                                             // 1: seed, rules, edits.  2: + players.  3: + structures
+    private const int Version = 4;           // bump when the layout changes; old versions get read with their old layout
+                                             // 1: seed, rules, edits.  2: + players.  3: + structures.
+                                             // 4: + structure ids, players' waystone lists
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -23,6 +24,7 @@ public class WorldSave
     // One placed structure
     public class StructureSave
     {
+        public string Id;        // stays the same across saves; players' waystone lists point at it
         public string Path;      // its scene
         public Vector3 Position;
         public float Yaw;
@@ -36,6 +38,7 @@ public class WorldSave
         public Vector3 Position;
         public float Health;     // 0 = died before the save; comes back at spawn on full health
         public string[] Skills = System.Array.Empty<string>();
+        public Dictionary<string, string> Waystones = new();   // structure id -> the name this player gave it
     }
 
     private static string FolderOf(string name) => $"user://worlds/{name}";
@@ -95,6 +98,11 @@ public class WorldSave
                 int skills = (int)file.Get32();
                 player.Skills = new string[skills];
                 for (int s = 0; s < skills; s++) player.Skills[s] = file.GetPascalString();
+                if (version >= 4)
+                {
+                    int known = (int)file.Get32();
+                    for (int w = 0; w < known; w++) player.Waystones[file.GetPascalString()] = file.GetPascalString();
+                }
                 save.Players[key] = player;
             }
         }
@@ -105,6 +113,7 @@ public class WorldSave
             for (int i = 0; i < structures; i++)
                 save.Structures.Add(new StructureSave
                 {
+                    Id = version >= 4 ? file.GetPascalString() : null,   // older saves get fresh ids on load
                     Path = file.GetPascalString(),
                     Position = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat()),
                     Yaw = file.GetFloat(),
@@ -154,11 +163,18 @@ public class WorldSave
                 file.StoreFloat(player.Health);
                 file.Store32((uint)player.Skills.Length);
                 foreach (string skill in player.Skills) file.StorePascalString(skill);
+                file.Store32((uint)player.Waystones.Count);
+                foreach (var (id, name) in player.Waystones)
+                {
+                    file.StorePascalString(id);
+                    file.StorePascalString(name);
+                }
             }
 
             file.Store32((uint)Structures.Count);
             foreach (StructureSave s in Structures)
             {
+                file.StorePascalString(s.Id ?? "");
                 file.StorePascalString(s.Path);
                 file.StoreFloat(s.Position.X);
                 file.StoreFloat(s.Position.Y);

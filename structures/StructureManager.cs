@@ -27,15 +27,16 @@ public partial class StructureManager : Node
 
     // ---------- Placing (host) ----------
 
-    // health: a saved value to restore, or below 0 for full
-    public Structure Place(PackedScene scene, Vector3 position, float yaw, string ownerKey, float health = -1f)
+    // health: a saved value to restore, or below 0 for full. id: a saved id to keep, or null for a new one.
+    public Structure Place(PackedScene scene, Vector3 position, float yaw, string ownerKey, float health = -1f, string id = null)
     {
         if (!Multiplayer.IsServer() || scene == null || string.IsNullOrEmpty(scene.ResourcePath)) return null;
 
         long order = _nextOrder++;
+        if (string.IsNullOrEmpty(id)) id = System.Guid.NewGuid().ToString("N");
         var structure = _spawner.Spawn(new Godot.Collections.Array
         {
-            scene.ResourcePath, position, yaw, ownerKey ?? "", order,
+            scene.ResourcePath, position, yaw, ownerKey ?? "", order, id,
         }) as Structure;
         if (structure == null) return null;
 
@@ -66,6 +67,14 @@ public partial class StructureManager : Node
         return list;
     }
 
+    public Structure FindById(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        foreach (Node node in _root.GetChildren())
+            if (node is Structure s && s.Id == id && !s.IsQueuedForDeletion()) return s;
+        return null;
+    }
+
     // Every machine: build the structure from what the host sent
     private Node CreateStructure(Variant data)
     {
@@ -77,7 +86,7 @@ public partial class StructureManager : Node
         structure.Name = $"Structure_{order}";
         structure.Position = args[1].AsVector3();
         structure.Rotation = new Vector3(0f, args[2].AsSingle(), 0f);
-        structure.Setup(path, args[3].AsString(), order);
+        structure.Setup(args[5].AsString(), path, args[3].AsString(), order);
         return structure;   // the spawner adds it under Structures itself
     }
 
@@ -94,6 +103,7 @@ public partial class StructureManager : Node
         foreach (Structure s in all)
             saves.Add(new WorldSave.StructureSave
             {
+                Id = s.Id,
                 Path = s.ScenePath,
                 Position = s.GlobalPosition,
                 Yaw = s.Rotation.Y,
@@ -112,7 +122,7 @@ public partial class StructureManager : Node
                 GD.PushWarning($"Saved structure '{s.Path}' no longer exists; skipped");
                 continue;
             }
-            Place(GD.Load<PackedScene>(s.Path), s.Position, s.Yaw, s.Owner, s.Health);
+            Place(GD.Load<PackedScene>(s.Path), s.Position, s.Yaw, s.Owner, s.Health, s.Id);
         }
     }
 }

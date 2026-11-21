@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://structures/Structure.cs" id="1_structure"]
+[ext_resource type="Script" uid="uid://bc2b2xofbrtrm" path="res://structures/Waystone.cs" id="1_structure"]
 [ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="2_health"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_stone"]
@@ -35,7 +35,7 @@ collision_layer = 4
 collision_mask = 0
 script = ExtResource("1_structure")
 DisplayName = "Waystone"
-MaxPerOwner = 3
+MaxPerOwner = 2
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)

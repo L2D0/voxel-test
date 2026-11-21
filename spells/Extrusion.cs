@@ -53,6 +53,7 @@ public partial class Extrusion : AnimatableBody3D
         FxRng.Randomize();
 
         var health = new Health { Name = "Health", MaxHealth = MaxHealth };
+        health.Immunities.Add(DamageType.Shock);   // stone
         AddChild(health);
         health.Died += source => Crumble();
 

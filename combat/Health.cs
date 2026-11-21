@@ -17,6 +17,7 @@ public partial class Health : Node
     public float Current { get; private set; }
     public float Shield { get; private set; }   // total temporary HP across every shield
     public bool IsDead => Current <= 0f;
+    public readonly HashSet<DamageType> Immunities = new();   // types that do nothing at all (Pure always lands)
 
     // Max health right now. Players' modifiers (gear, nodes, buffs) can change it; everything else uses the base.
     public float Max => _mods != null ? _mods.GetPlayer(PlayerStat.MaxHealth, MaxHealth) : MaxHealth;
@@ -134,6 +135,7 @@ public partial class Health : Node
     public float Resolve(DamageInfo hit)
     {
         float amount = hit.Amount;                    // 1. base, already including spell modifiers
+        if (hit.Type != DamageType.Pure && Immunities.Contains(hit.Type)) return 0f;   // stone versus lightning
         if (hit.Crit) amount *= hit.CritMultiplier;   // 2. weak point
         if (hit.Type != DamageType.Pure)              // 3. status amplification (Wet into Shock and so on)
             amount *= 1f + (StatusEffects.Of(GetParent())?.AmplificationFor(hit.Type) ?? 0f);

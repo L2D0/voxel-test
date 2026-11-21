@@ -179,7 +179,7 @@ public partial class SpellCaster : Node
 
     private Node3D FindTarget(SpellDefinition spell) =>
         FindAlongAim(TargetRange(spell), Stat(spell, nameof(SpellDefinition.AssistRadius)),
-            SpellFx.CharacterLayer, body => IsValidTarget(spell, body));
+             SpellFx.DamageableMask, body => IsValidTarget(spell, body));   // characters and structures
 
     private void ApplySnap(SpellContext ctx)
     {
@@ -475,7 +475,6 @@ public partial class SpellCaster : Node
         _heldCastId = -1;
         if (!_active.TryGetValue(castId, out SpellContext ctx)) return;
 
-        if (ctx.Spell.Mode == CastMode.Hold) Spend(ctx.SpellIndex);
         // Let go before it's fully charged: cancelled, and it costs nothing
         if (ctx.Spell.RequiresFullCharge && ctx.ChargeFraction < 1f)
         {

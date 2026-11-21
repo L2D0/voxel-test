@@ -1,55 +1,82 @@
 using Godot;
 
-// A waystone: one stop on its owner's personal travel network. Interact (E) with one of your own to
-// pick another of yours and travel there. Other players' waystones do nothing for you.
+// A waystone: anyone can use any waystone, and each player keeps their own list of the ones they've used.
+// The first time you use one, you name it (just for you) and it goes on your list. After that, using it
+// shows your list so you can travel to any other waystone on it. Breaking a waystone takes it off every list.
 // Travel is free for now; it will cost a resource, scaled by distance, once that's decided.
 public partial class Waystone : Structure, IInteractable
 {
     [Export] public float UseReach = 6f;          // the host's check: how close you must be to the stone you used
     [Export] public float ArrivalOffset = 1.5f;   // you arrive this far in front of the destination stone
+    public const int MaxNameLength = 24;
 
     // Where a traveller arrives: in front of the stone, which faces whoever raised it
     public Vector3 ArrivalPoint => GlobalPosition - GlobalBasis.Z * ArrivalOffset;
 
-    // The interacting player's machine
+    // ---------- The interacting player's machine ----------
+
     public void Interact(PlayerController player)
     {
-        if (OwnerKey != Session.LocalKey)
-        {
-            GD.Print("This waystone isn't yours");
-            return;
-        }
-        WaystoneMenu.Open(this);
+        if (Session.LocalWaystones.ContainsKey(Id)) WaystoneMenu.OpenTravel(this);
+        else WaystoneMenu.OpenNaming(this);
     }
 
-    // The menu picked a destination: ask the host
-    public void RequestTravel(string destination)
+    public void RequestName(string name)
     {
-        if (Multiplayer.IsServer()) Travel(1, destination);
-        else RpcId(1, MethodName.ReceiveTravel, destination);
+        if (Multiplayer.IsServer()) NameFor(1, name);
+        else RpcId(1, MethodName.ReceiveName, name);
+    }
+
+    public void RequestTravel(string destinationId)
+    {
+        if (Multiplayer.IsServer()) Travel(1, destinationId);
+        else RpcId(1, MethodName.ReceiveTravel, destinationId);
+    }
+
+    // ---------- Host ----------
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveName(string name)
+    {
+        if (Multiplayer.IsServer()) NameFor(Multiplayer.GetRemoteSenderId(), name);
     }
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReceiveTravel(string destination)
+    private void ReceiveTravel(string destinationId)
     {
-        if (Multiplayer.IsServer()) Travel(Multiplayer.GetRemoteSenderId(), destination);
+        if (Multiplayer.IsServer()) Travel(Multiplayer.GetRemoteSenderId(), destinationId);
     }
 
-    // Host: check it's really yours, you're really here, and the destination is yours too
-    private void Travel(long peer, string destination)
+    private void NameFor(long peer, string name)
     {
-        PlayerController player = null;
-        foreach (Node node in GetTree().GetNodesInGroup("players"))
-            if (node.Name == peer.ToString()) player = node as PlayerController;
-        if (player == null || player.IsDead) return;
+        if (UserAt(peer) is not PlayerController player) return;
+        Session.Learn(player, Id, Clean(name));
+    }
 
-        string key = Session.KeyOf(player);
-        if (key == "" || key != OwnerKey) return;
-        if (player.GlobalPosition.DistanceTo(GlobalPosition) > UseReach) return;
+    // Both ends have to be on your list, and you have to be standing at this one
+    private void Travel(long peer, string destinationId)
+    {
+        if (UserAt(peer) is not PlayerController player) return;
+        if (!Session.Knows(player, Id) || !Session.Knows(player, destinationId)) return;
 
-        if (GetParent().GetNodeOrNull<Waystone>(destination) is not Waystone target) return;
-        if (target == this || target.OwnerKey != key || target.IsQueuedForDeletion()) return;
-
+        if (StructureManager.Of(this)?.FindById(destinationId) is not Waystone target || target == this) return;
         player.TravelTo(target.ArrivalPoint);
+    }
+
+    // The player for this peer, if they're alive and close enough to be using this stone
+    private PlayerController UserAt(long peer)
+    {
+        foreach (Node node in GetTree().GetNodesInGroup("players"))
+            if (node.Name == peer.ToString() && node is PlayerController player && !player.IsDead
+                && player.GlobalPosition.DistanceTo(GlobalPosition) <= UseReach)
+                return player;
+        return null;
+    }
+
+    private static string Clean(string name)
+    {
+        name = (name ?? "").StripEdges();
+        if (name.Length > MaxNameLength) name = name[..MaxNameLength];
+        return name == "" ? "Waystone" : name;
     }
 }

@@ -32,7 +32,7 @@ public static class Chain
 
         Node3D best = null;
         float bestDistance = range;
-        foreach (Node3D body in SpellFx.BodiesInSphere(from, origin, range, SpellFx.CharacterLayer))
+        foreach (Node3D body in SpellFx.BodiesInSphere(from, origin, range, SpellFx.DamageableMask))
         {
             if (visited.Contains(body) || body == caster || Health.Of(body) == null) continue;
             if (!Teams.Matches(caster, body, filter)) continue;
