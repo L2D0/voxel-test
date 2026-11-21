@@ -62,7 +62,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen;
     public bool IsStunned => _statuses?.IsStunned ?? false;
-    public bool IsRooted => _statuses?.IsRooted ?? false;
+    public bool IsRooted => (_statuses?.IsRooted ?? false) || (_caster?.LocksMovement ?? false);
     public bool IsDead => _health != null && _health.IsDead;
 
     private PlayerCamera _camera;
@@ -102,7 +102,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     {
         // Runs before _Ready: the peer named in this node's name controls it
         SetMultiplayerAuthority(int.Parse(Name));
-
+                        
     }
 
     public override void _Ready()
@@ -311,6 +311,33 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     // Moves this player to a safe spot near target. False if nowhere close is safe.
     // Whoever calls it (the host for a spell, the player for a waystone), the player's own machine does the move.
+    // ---------- Loading a save ----------
+
+    // Host to owner: put me back where I was saved, with my skills
+    public void RestoreFromSave(bool hasPosition, Vector3 position, string[] skills)
+    {
+        if (IsMultiplayerAuthority()) ApplySave(hasPosition, position, skills);
+        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveSave, hasPosition, position, skills);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveSave(bool hasPosition, Vector3 position, string[] skills)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host restores characters
+        ApplySave(hasPosition, position, skills);
+    }
+
+    private void ApplySave(bool hasPosition, Vector3 position, string[] skills)
+    {
+        if (hasPosition)
+        {
+            GlobalPosition = position;
+            Velocity = Vector3.Zero;
+            // Wait for the ground there to be built, but keep the exact spot: you might have saved in a cave
+            (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this, placeOnSurface: false);
+        }
+        Skills?.Restore(skills);
+    }
     // Spawning and respawning: stand on the ground under the spawn point, wherever this seed put it
     public bool TryPlaceOnSurface(VoxelWorld world)
     {

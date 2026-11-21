@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WorldAnchorSpell" format=3 uid="uid://d04a0eiqhgga8"]
+
+[ext_resource type="Script" uid="uid://lfrroovsosm1" path="res://combat/StatusDefinition.cs" id="1_dgl3j"]
+[ext_resource type="Script" uid="uid://bwt7rrlicd0s2" path="res://spells/earth/WorldAnchorSpell.cs" id="1_spell"]
+[ext_resource type="PackedScene" path="res://structures/waystone.tscn" id="2_stone"]
+
+[resource]
+script = ExtResource("1_spell")
+Structure = ExtResource("2_stone")
+SpellName = "World Anchor"
+Element = 10
+Mode = 1
+RechargeTime = 3.0
+Range = 10.0
+Cost = 30.0
+ChargeTime = 3.0
+RequiresGround = true

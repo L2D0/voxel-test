@@ -1,13 +1,14 @@
 using Godot;
 using System.Collections.Generic;
 
-// One world on disk: its seed, its rules and every terrain edit since it was made.
-// Placed structures, enemies and players join it later (pipeline 4.2 to 4.4).
+// One world on disk: its seed, its rules, every terrain edit since it was made, every player who has
+// played in it, and every structure they've placed. Enemies join it later (pipeline 4.3).
 // Only the host has one; clients get everything they need from the host when they join.
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 1;           // bump when the layout changes; old versions get read with their old layout
+    private const int Version = 3;           // bump when the layout changes; old versions get read with their old layout
+                                             // 1: seed, rules, edits.  2: + players.  3: + structures
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -16,6 +17,26 @@ public class WorldSave
     public bool FriendlyFire;
     public bool IsNew = true;                // made this session, never loaded from disk
     public List<TerrainEdit> Edits = new();
+    public Dictionary<string, PlayerSave> Players = new();   // by PlayerIdentity id, including players who are offline
+    public List<StructureSave> Structures = new();            // oldest first
+
+    // One placed structure
+    public class StructureSave
+    {
+        public string Path;      // its scene
+        public Vector3 Position;
+        public float Yaw;
+        public string Owner;     // the saved-player key of whoever placed it
+        public float Health;     // below 0 = full
+    }
+
+    // One player's character in this world
+    public class PlayerSave
+    {
+        public Vector3 Position;
+        public float Health;     // 0 = died before the save; comes back at spawn on full health
+        public string[] Skills = System.Array.Empty<string>();
+    }
 
     private static string FolderOf(string name) => $"user://worlds/{name}";
     private static string FileOf(string name) => $"{FolderOf(name)}/world.dat";
@@ -59,6 +80,38 @@ public class WorldSave
             bool fill = file.Get8() != 0;
             save.Edits.Add(new TerrainEdit(point, radius, fill));
         }
+
+        if (version >= 2)
+        {
+            int players = (int)file.Get32();
+            for (int i = 0; i < players; i++)
+            {
+                string key = file.GetPascalString();
+                var player = new PlayerSave
+                {
+                    Position = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat()),
+                    Health = file.GetFloat(),
+                };
+                int skills = (int)file.Get32();
+                player.Skills = new string[skills];
+                for (int s = 0; s < skills; s++) player.Skills[s] = file.GetPascalString();
+                save.Players[key] = player;
+            }
+        }
+
+        if (version >= 3)
+        {
+            int structures = (int)file.Get32();
+            for (int i = 0; i < structures; i++)
+                save.Structures.Add(new StructureSave
+                {
+                    Path = file.GetPascalString(),
+                    Position = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat()),
+                    Yaw = file.GetFloat(),
+                    Owner = file.GetPascalString(),
+                    Health = file.GetFloat(),
+                });
+        }
         return save;
     }
 
@@ -89,6 +142,30 @@ public class WorldSave
                 file.StoreFloat(e.Point.Z);
                 file.StoreFloat(e.Radius);
                 file.Store8(e.Fill ? (byte)1 : (byte)0);
+            }
+
+            file.Store32((uint)Players.Count);
+            foreach (var (key, player) in Players)
+            {
+                file.StorePascalString(key);
+                file.StoreFloat(player.Position.X);
+                file.StoreFloat(player.Position.Y);
+                file.StoreFloat(player.Position.Z);
+                file.StoreFloat(player.Health);
+                file.Store32((uint)player.Skills.Length);
+                foreach (string skill in player.Skills) file.StorePascalString(skill);
+            }
+
+            file.Store32((uint)Structures.Count);
+            foreach (StructureSave s in Structures)
+            {
+                file.StorePascalString(s.Path);
+                file.StoreFloat(s.Position.X);
+                file.StoreFloat(s.Position.Y);
+                file.StoreFloat(s.Position.Z);
+                file.StoreFloat(s.Yaw);
+                file.StorePascalString(s.Owner ?? "");
+                file.StoreFloat(s.Health);
             }
         }
 

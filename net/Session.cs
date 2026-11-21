@@ -13,6 +13,7 @@ public partial class Session : Node
     [Export] public float AutosaveInterval = 300f;       // seconds; the host also saves when the game closes
 
     private float _autosaveTimer;
+    private readonly Dictionary<long, string> _keys = new();   // host: peer id -> the key their save is filed under
 
     public override void _Ready()
     {
@@ -35,6 +36,8 @@ public partial class Session : Node
         WorldSave save = Multiplayer.IsServer() ? WorldSave.Current : null;
         if (save != null) World.LoadEdits(save.Edits);
         World.Initialize(seed);
+        SendIdentity();
+        if (save != null) StructureManager.Of(this)?.Load(save.Structures);   // host; the spawner sends them to everyone
 
         if (!Multiplayer.IsServer()) return;   // only the host spawns players and sets the rules
 
@@ -42,9 +45,16 @@ public partial class Session : Node
         // A new world takes the export; a loaded one keeps what it was saved with.
         Teams.FriendlyFire = save == null || save.IsNew ? FriendlyFire : save.FriendlyFire;
         SpawnPlayer(1);
+        RegisterPlayer(1, PlayerIdentity.Id);
         Multiplayer.PeerConnected += SpawnPlayer;
         Multiplayer.PeerConnected += id => RpcId(id, MethodName.ReceiveRules, Teams.FriendlyFire);
-        Multiplayer.PeerDisconnected += id => Players.GetNodeOrNull(id.ToString())?.QueueFree();
+        Multiplayer.PeerDisconnected += OnPeerDisconnected;
+    }
+
+    // Client: the session has started (the host sent the seed), so say who we are
+    private void SendIdentity()
+    {
+        if (!Multiplayer.IsServer()) RpcId(1, MethodName.ReceiveIdentity, PlayerIdentity.Id);
     }
 
     // ---------- World rules ----------
@@ -60,6 +70,58 @@ public partial class Session : Node
         Teams.FriendlyFire = !Teams.FriendlyFire;
         Rpc(MethodName.ReceiveRules, Teams.FriendlyFire);
         GD.Print($"Friendly fire {(Teams.FriendlyFire ? "on" : "off")}");
+    }
+
+    // ---------- Players' saves (host) ----------
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveIdentity(string id)
+    {
+        if (Multiplayer.IsServer()) RegisterPlayer(Multiplayer.GetRemoteSenderId(), id);
+    }
+
+    // Files a peer under its identity, then gives back their character if this world has one
+    private void RegisterPlayer(long peer, string id)
+    {
+        string key = id;
+        for (int n = 2; _keys.ContainsValue(key); n++) key = $"{id}#{n}";   // two windows on one computer
+        _keys[peer] = key;
+
+        if (WorldSave.Current == null || !WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave data)) return;
+        if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
+
+        bool alive = data.Health > 0f;
+        if (alive) Health.Of(player)?.SetCurrent(data.Health);
+        player.RestoreFromSave(alive, data.Position, data.Skills);   // dead at save time: back at spawn, full health
+    }
+
+    private void CapturePlayer(long peer)
+    {
+        if (WorldSave.Current == null || !_keys.TryGetValue(peer, out string key)) return;
+        if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
+
+        WorldSave.Current.Players[key] = new WorldSave.PlayerSave
+        {
+            Position = player.GlobalPosition,
+            Health = Health.Of(player)?.Current ?? 0f,
+            Skills = player.Skills?.UnlockedIds() ?? System.Array.Empty<string>(),
+        };
+    }
+
+    // The saved-player key of a player node (named after its peer id). Host only; "" if unknown.
+    public static string KeyOf(Node player)
+    {
+        if (player?.GetTree().GetFirstNodeInGroup("session") is not Session session) return "";
+        if (!long.TryParse(player.Name, out long peer)) return "";
+        return session._keys.TryGetValue(peer, out string key) ? key : "";
+    }
+
+    // Leaving keeps their character in the world for next time
+    private void OnPeerDisconnected(long peer)
+    {
+        CapturePlayer(peer);
+        _keys.Remove(peer);
+        Players.GetNodeOrNull(peer.ToString())?.QueueFree();
     }
 
     // ---------- Saving (host) ----------
@@ -90,8 +152,10 @@ public partial class Session : Node
         save.Seed = World.Seed;
         save.FriendlyFire = Teams.FriendlyFire;
         save.Edits = new List<TerrainEdit>(World.EditLog);
+        foreach (long peer in _keys.Keys) CapturePlayer(peer);   // offline players keep what they left with
+        save.Structures = StructureManager.Of(this)?.Capture() ?? new List<WorldSave.StructureSave>();
         save.Save();
-        GD.Print($"Saved world '{save.Name}': {save.Edits.Count} terrain edits");
+        GD.Print($"Saved world '{save.Name}': {save.Edits.Count} terrain edits, {save.Players.Count} players, {save.Structures.Count} structures");
     }
 
     // ---------- Players ----------

@@ -13,6 +13,7 @@
 [ext_resource type="Resource" uid="uid://bff5787hqeg4s" path="res://spells/earth/stone_barrier.tres" id="10_wodsf"]
 [ext_resource type="Resource" uid="uid://b3vh5q5volkwn" path="res://spells/earth/earthen_expulsion.tres" id="11_32hag"]
 [ext_resource type="Resource" uid="uid://bol5cn2y1ia5r" path="res://spells/test/beam_test.tres" id="12_c35mf"]
+[ext_resource type="Resource" uid="uid://d04a0eiqhgga8" path="res://spells/earth/world_anchor.tres" id="13_65viv"]
 [ext_resource type="Script" uid="uid://bb6d7upji3aff" path="res://spells/StatModifier.cs" id="13_tqiix"]
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
@@ -131,7 +132,7 @@ script = ExtResource("3_g1dw6")
 
 [node name="Spellcaster" type="Node" parent="." unique_id=1953736732]
 script = ExtResource("4_g6k8r")
-Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7pqkx"), ExtResource("10_wodsf"), ExtResource("11_32hag"), ExtResource("12_c35mf")])
+Spells = Array[ExtResource("7_knn7v")]([ExtResource("8_kb6p2"), ExtResource("8_7pqkx"), ExtResource("10_wodsf"), ExtResource("11_32hag"), ExtResource("12_c35mf"), ExtResource("13_65viv")])
 
 [node name="Modifiers" type="Node" parent="." unique_id=823796429]
 script = ExtResource("9_hg6s5")

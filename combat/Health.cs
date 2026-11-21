@@ -187,6 +187,12 @@ public partial class Health : Node
         Broadcast(Mathf.Min(Current + amount, Max), 0f, null);
     }
 
+    // Loading a save: put health back where it was. Host only.
+    public void SetCurrent(float value)
+    {
+        if (!Multiplayer.IsServer()) return;
+        Broadcast(Mathf.Clamp(value, 1f, Max), 0f, null);
+    }
     public void Reset()
     {
         if (!Multiplayer.IsServer()) return;

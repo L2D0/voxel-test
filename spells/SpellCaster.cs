@@ -16,7 +16,13 @@ public partial class SpellCaster : Node
 
     // Holding a spell that needs the caster's feet on the ground: no jumping until it's released
     public bool LocksJump =>
+
         _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.RequiresGround;
+
+    // Holding a spell that roots the caster: no moving or jumping until it's released
+    public bool LocksMovement =>
+        _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.RootsWhileHeld;
+
 
     // Right click belongs to the spell (alt fire) instead of aiming
     public bool AimReplaced => ActiveSpell != null && ActiveSpell.AltMode != AltMode.None;
@@ -470,6 +476,12 @@ public partial class SpellCaster : Node
         if (!_active.TryGetValue(castId, out SpellContext ctx)) return;
 
         if (ctx.Spell.Mode == CastMode.Hold) Spend(ctx.SpellIndex);
+        // Let go before it's fully charged: cancelled, and it costs nothing
+        if (ctx.Spell.RequiresFullCharge && ctx.ChargeFraction < 1f)
+        {
+            Rpc(MethodName.ReplicateCancel, castId);
+            return;
+        }
         Rpc(MethodName.ReplicateRelease, castId, ctx.HeldTime, ctx.AimPoint, ctx.AimNormal, ctx.AimHit);
     }
 

@@ -57,6 +57,7 @@ public partial class VoxelWorld : Node3D
     private bool _dirty = true;
     private bool _spawnReady;
     private int _spawnTries;
+    private bool _placeOnSurface = true;
     private bool _initialized;
 
     // ---------- Setup ----------
@@ -102,10 +103,11 @@ public partial class VoxelWorld : Node3D
     }
 
     // The player this machine streams terrain around
-    public void SetPlayer(Node3D player)
+    public void SetPlayer(Node3D player, bool placeOnSurface = true)
     {
         Player = player;
         Player.ProcessMode = ProcessModeEnum.Disabled;   // frozen until the ground exists
+        _placeOnSurface = placeOnSurface;                 // false: a loaded save already knows where it stands
         _spawnReady = false;
         _dirty = true;
     }
@@ -311,7 +313,7 @@ public partial class VoxelWorld : Node3D
         }
         // The column exists; stand the player on it. Physics can lag a frame behind new chunks, so keep trying
         // for a couple of seconds before giving up and letting them drop from where they are.
-        if (Player is PlayerController pc && !pc.TryPlaceOnSurface(this) && ++_spawnTries < 120) return;
+        if (_placeOnSurface && Player is PlayerController pc && !pc.TryPlaceOnSurface(this) && ++_spawnTries < 120) return;
         _spawnTries = 0;
         _spawnReady = true;
         Player.ProcessMode = ProcessModeEnum.Inherit;

@@ -1,0 +1,59 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://structures/Structure.cs" id="1_structure"]
+[ext_resource type="Script" uid="uid://cjax1sykbtrjk" path="res://combat/Health.cs" id="2_health"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_stone"]
+size = Vector3(0.9, 2.2, 0.9)
+
+[sub_resource type="StandardMaterial3D" id="Material_stone"]
+albedo_color = Color(0.45, 0.47, 0.52, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_stone"]
+material = SubResource("Material_stone")
+top_radius = 0.35
+bottom_radius = 0.5
+height = 2.2
+radial_segments = 6
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="Material_glow"]
+albedo_color = Color(0.4, 0.8, 1, 1)
+emission_enabled = true
+emission = Color(0.4, 0.8, 1, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_glow"]
+material = SubResource("Material_glow")
+radius = 0.18
+height = 0.36
+radial_segments = 8
+rings = 4
+
+[node name="Waystone" type="StaticBody3D"]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_structure")
+DisplayName = "Waystone"
+MaxPerOwner = 3
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+shape = SubResource("BoxShape3D_stone")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
+mesh = SubResource("CylinderMesh_stone")
+
+[node name="Glow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.45, 0)
+mesh = SubResource("SphereMesh_glow")
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
+MaxHealth = 150.0
+
+[node name="Label" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+billboard = 1
+text = "Waystone"

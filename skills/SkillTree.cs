@@ -18,6 +18,37 @@ public partial class SkillTree : Node
 
     public bool IsUnlocked(SkillNode node) => _unlocked.Contains(node);
 
+    public string[] UnlockedIds()
+    {
+        var ids = new string[_unlocked.Count];
+        int i = 0;
+        foreach (SkillNode node in _unlocked) ids[i++] = node.Id;
+        return ids;
+    }
+
+    // Loading a save, owner only: relearns each skill the normal way so every machine follows along.
+    // Keeps going over the list until nothing more unlocks, since a node needs its prerequisites first.
+    public void Restore(string[] ids)
+    {
+        var pending = new List<SkillNode>();
+        foreach (string id in ids)
+            foreach (SkillNode n in Nodes)
+                if (n.Id == id && !IsUnlocked(n)) pending.Add(n);
+
+        bool progress = true;
+        while (progress && pending.Count > 0)
+        {
+            progress = false;
+            for (int i = pending.Count - 1; i >= 0; i--)
+            {
+                if (!CanUnlock(pending[i])) continue;
+                Toggle(pending[i]);   // runs here straight away, so the next check sees it
+                pending.RemoveAt(i);
+                progress = true;
+            }
+        }
+    }
+
     public bool CanUnlock(SkillNode node)
     {
         if (IsUnlocked(node)) return false;
