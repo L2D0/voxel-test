@@ -270,6 +270,17 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         Velocity += impulse * EntityInfo.KnockbackScale(this);
         _launchTimer = 0.15f;   // ignore the ground briefly so friction can't eat the launch
     }
+    // Host only. Same safe-landing rules as players; false if nowhere close is safe.
+    public bool TeleportNear(Vector3 target)
+    {
+        if (!Multiplayer.IsServer()) return false;
+        float height = Mathf.Max(Def.BodyHeight, Def.BodyRadius * 2f);
+        if (SafeLanding.Find(this, target, Def.BodyRadius, height, GetRid()) is not Vector3 centre) return false;
+
+        GlobalPosition = centre;
+        Velocity = Vector3.Zero;
+        return true;
+    }
 
     // ---------- Damage and death ----------
 

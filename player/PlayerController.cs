@@ -304,6 +304,33 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     // Spells that set you down gently (Tornado's drop, a Bubble popping) call this
     public void GrantFallImmunity(float seconds) => _fallImmuneTimer = Mathf.Max(_fallImmuneTimer, seconds);
+    // ---------- Teleporting ----------
+
+    // Moves this player to a safe spot near target. False if nowhere close is safe.
+    // Whoever calls it (the host for a spell, the player for a waystone), the player's own machine does the move.
+    public bool TeleportNear(Vector3 target)
+    {
+        if (SafeLanding.Find(this, target, _capsule.Radius, _standHeight, GetRid()) is not Vector3 centre) return false;
+
+        if (IsMultiplayerAuthority()) ApplyTeleport(centre);
+        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveTeleport, centre);
+        return true;
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveTeleport(Vector3 centre)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host moves other people
+        ApplyTeleport(centre);
+    }
+
+    private void ApplyTeleport(Vector3 centre)
+    {
+        GlobalPosition = centre;
+        Velocity = Vector3.Zero;
+        _launchTimer = 0f;
+        GrantFallImmunity(0.5f);   // landing a few centimetres up never hurts
+    }
 
     // ---------- Movement ----------
 
@@ -507,6 +534,12 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         // F2: 30 shield for 6 seconds. Host window only, since only the host changes health.
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F2 }) _health.AddShield(this, 30f, 6f);
+        // F3: teleport to the crosshair through the safe-landing helper
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F3 } && IsMultiplayerAuthority())
+        {
+            _aimRay.ForceRaycastUpdate();
+            if (_aimRay.IsColliding()) TeleportNear(_aimRay.GetCollisionPoint());
+        }
     }
 
     private void BuildTerrain()
