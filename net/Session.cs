@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public partial class Session : Node
 {
@@ -9,6 +10,10 @@ public partial class Session : Node
     [Export] public Vector3 SpawnPoint = new Vector3(0, 70, 0);
     [Export] public bool FriendlyFire = false;   // world rule; chosen when creating a world once the main menu exists (4.7)
     [Export] public Key FriendlyFireDebugKey = Key.F9;   // host only: flips it mid-game for testing (F8 is the editor's stop key)
+    [Export] public float AutosaveInterval = 300f;       // seconds; the host also saves when the game closes
+
+    private float _autosaveTimer;
+
     public override void _Ready()
     {
         if (PlayerScene == null || World == null || Players == null || Spawner == null)
@@ -25,11 +30,16 @@ public partial class Session : Node
 
     private void OnSessionStarted(int seed)
     {
+        // Host continuing a world: its edits go in before the first chunk is built
+        WorldSave save = Multiplayer.IsServer() ? WorldSave.Current : null;
+        if (save != null) World.LoadEdits(save.Edits);
         World.Initialize(seed);
 
         if (!Multiplayer.IsServer()) return;   // only the host spawns players and sets the rules
 
-        Teams.FriendlyFire = FriendlyFire;   // static: set every session, so an old value never carries over
+        // Static, so set every session and an old value never carries over.
+        // A new world takes the export; a loaded one keeps what it was saved with.
+        Teams.FriendlyFire = save == null || save.IsNew ? FriendlyFire : save.FriendlyFire;
         SpawnPlayer(1);
         Multiplayer.PeerConnected += SpawnPlayer;
         Multiplayer.PeerConnected += id => RpcId(id, MethodName.ReceiveRules, Teams.FriendlyFire);
@@ -49,6 +59,36 @@ public partial class Session : Node
         Teams.FriendlyFire = !Teams.FriendlyFire;
         Rpc(MethodName.ReceiveRules, Teams.FriendlyFire);
         GD.Print($"Friendly fire {(Teams.FriendlyFire ? "on" : "off")}");
+    }
+
+    // ---------- Saving (host) ----------
+
+    public override void _Process(double delta)
+    {
+        if (WorldSave.Current == null || !GameState.InGame || !Multiplayer.IsServer()) return;
+
+        _autosaveTimer += (float)delta;
+        if (_autosaveTimer < AutosaveInterval) return;
+        _autosaveTimer = 0f;
+        SaveWorld();
+    }
+
+    // Closing the window, or Quit in the pause menu
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest) SaveWorld();
+    }
+
+    public void SaveWorld()
+    {
+        WorldSave save = WorldSave.Current;
+        if (save == null || !GameState.InGame || !Multiplayer.IsServer()) return;
+
+        save.Seed = World.Seed;
+        save.FriendlyFire = Teams.FriendlyFire;
+        save.Edits = new List<TerrainEdit>(World.EditLog);
+        save.Save();
+        GD.Print($"Saved world '{save.Name}': {save.Edits.Count} terrain edits");
     }
 
     // ---------- Players ----------
