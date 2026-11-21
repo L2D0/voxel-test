@@ -10,6 +10,13 @@ public partial class PauseMenu : CanvasLayer
         _drawDistanceLabel = GetNode<Label>("%DrawDistanceLabel");
 
         GetNode<Button>("%ResumeButton").Pressed += Close;
+
+        // Save world: host only, saves right now without quitting
+        var resume = GetNode<Button>("%ResumeButton");
+        var saveButton = new Button { Name = "SaveButton", Text = "Save world" };
+        resume.GetParent().AddChild(saveButton);
+        resume.GetParent().MoveChild(saveButton, resume.GetIndex() + 1);
+        saveButton.Pressed += () => (GetTree().GetFirstNodeInGroup("session") as Session)?.SaveWorld();
         GetNode<Button>("%QuitButton").Pressed += () =>
         {
             GetTree().Root.PropagateNotification((int)NotificationWMCloseRequest);   // lets the host save first
@@ -45,6 +52,8 @@ public partial class PauseMenu : CanvasLayer
     private void Open()
     {
         Visible = true;
+        if (GetNodeOrNull<Button>("%ResumeButton")?.GetParent().GetNodeOrNull<Button>("SaveButton") is Button save)
+            save.Visible = Multiplayer.IsServer() && WorldSave.Current != null;   // only the host has a world to save
         GameState.MenuOpen = true;
         Input.MouseMode = Input.MouseModeEnum.Visible;
     }

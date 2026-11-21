@@ -56,6 +56,7 @@ public partial class VoxelWorld : Node3D
     private readonly List<(Vector3I Center, int Radius)> _lastAreas = new();
     private bool _dirty = true;
     private bool _spawnReady;
+    private int _spawnTries;
     private bool _initialized;
 
     // ---------- Setup ----------
@@ -308,9 +309,26 @@ public partial class VoxelWorld : Node3D
             var coord = new Vector3I(center.X, y, center.Z);
             if (!_chunks.TryGetValue(coord, out VoxelChunk c) || !c.HasData) return;
         }
+        // The column exists; stand the player on it. Physics can lag a frame behind new chunks, so keep trying
+        // for a couple of seconds before giving up and letting them drop from where they are.
+        if (Player is PlayerController pc && !pc.TryPlaceOnSurface(this) && ++_spawnTries < 120) return;
+        _spawnTries = 0;
         _spawnReady = true;
         Player.ProcessMode = ProcessModeEnum.Inherit;
     }
+
+    // Is there built terrain under this point, all the way down? Bodies the host runs (enemies)
+    // wait on this instead of falling through ground that hasn't been built yet.
+    public bool IsGroundReady(Vector3 point)
+    {
+        Vector3I coord = ChunkOf(point);
+        for (int y = Mathf.Min(coord.Y, MaxChunkY); y >= MinChunkY; y--)
+            if (!_chunks.TryGetValue(new Vector3I(coord.X, y, coord.Z), out VoxelChunk c) || !c.HasData) return false;
+        return true;
+    }
+
+    public float TopY => (MaxChunkY + 1) * VoxelChunk.Size;
+    public float BottomY => MinChunkY * VoxelChunk.Size;
 
     // ---------- Biome regions (Voronoi) ----------
 

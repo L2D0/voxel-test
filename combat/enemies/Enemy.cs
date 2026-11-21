@@ -21,6 +21,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
 
     private float _launchTimer;
     private float _corpseTimer = -1f;
+    private VoxelWorld _world;
 
     // What the brain asks the body to do each frame
     private Vector3? _moveTo;
@@ -66,6 +67,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     public override void _Ready()
     {
         AddToGroup("enemies");
+        _world = GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld;
         Home = GlobalPosition;
 
         _health = Health.Of(this);
@@ -102,6 +104,7 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
+        if (_world != null && !_world.IsGroundReady(GlobalPosition)) return;   // hold still until there's ground below
         _launchTimer -= dt;
 
         if (_health.IsDead)

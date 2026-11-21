@@ -24,6 +24,7 @@ public partial class Session : Node
 
         // Runs on every machine whenever the host calls Spawner.Spawn(...)
         Spawner.SpawnFunction = Callable.From<Variant, Node>(CreatePlayer);
+        AddToGroup("session");   // the pause menu's Save button finds it here
 
         GetNode<NetworkManager>("/root/NetworkManager").SessionStarted += OnSessionStarted;
     }
@@ -82,7 +83,9 @@ public partial class Session : Node
     public void SaveWorld()
     {
         WorldSave save = WorldSave.Current;
-        if (save == null || !GameState.InGame || !Multiplayer.IsServer()) return;
+        if (save == null) { GD.Print("Not saving: no world loaded (joined as a client, or the menu's Host wasn't used)"); return; }
+        if (!Multiplayer.IsServer()) { GD.Print("Not saving: only the host saves"); return; }
+        if (!GameState.InGame) { GD.Print("Not saving: not in game yet"); return; }
 
         save.Seed = World.Seed;
         save.FriendlyFire = Teams.FriendlyFire;

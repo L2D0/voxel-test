@@ -102,6 +102,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     {
         // Runs before _Ready: the peer named in this node's name controls it
         SetMultiplayerAuthority(int.Parse(Name));
+
     }
 
     public override void _Ready()
@@ -285,6 +286,8 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         Velocity = Vector3.Zero;
         _respawnTimer = float.MaxValue;    // don't ask twice while the host's answer is on its way
         _health.RequestRespawn();          // the host restores my health
+                                           // The spawn point may be far away and unloaded: freeze until its ground is built, then stand on it
+        (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this);
     }
 
     // ---------- Falling ----------
@@ -308,7 +311,18 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     // Moves this player to a safe spot near target. False if nowhere close is safe.
     // Whoever calls it (the host for a spell, the player for a waystone), the player's own machine does the move.
+    // Spawning and respawning: stand on the ground under the spawn point, wherever this seed put it
+    public bool TryPlaceOnSurface(VoxelWorld world)
+    {
+        if (SafeLanding.FindSurface(this, GlobalPosition, world.TopY, world.BottomY,
+                                    _capsule.Radius, _standHeight, GetRid()) is not Vector3 centre) return false;
+        GlobalPosition = centre;
+        Velocity = Vector3.Zero;
+        GrantFallImmunity(0.5f);
+        return true;
+    }
     public bool TeleportNear(Vector3 target)
+
     {
         if (SafeLanding.Find(this, target, _capsule.Radius, _standHeight, GetRid()) is not Vector3 centre) return false;
 

@@ -1,25 +1,41 @@
 using Godot;
 
-// Finds somewhere a body can stand near a point. Every teleport goes through this (Electromotive
-// rush, Shadow step, Guiding light, waystones), so none of them can drop you inside terrain,
-// inside a pillar, on a cliff face, or out over the void.
+// Finds somewhere a body can stand. Every teleport goes through this (Electromotive rush,
+// Shadow step, Guiding light, waystones), and so do spawning and respawning, so nothing gets
+// dropped inside terrain, inside a pillar, on a cliff face, or out over the void.
 public static class SafeLanding
 {
     private const uint Solid = SpellFx.WorldLayer | SpellFx.StructureLayer;   // terrain and extrusions
-    private const float ProbeAbove = 4f;     // look for ground starting this far above the target...
+    private const float ProbeAbove = 4f;     // teleports look for ground starting this far above the target...
     private const float ProbeBelow = 12f;    // ...down to this far below it
     private const float MinFloorNormal = 0.6f;   // steeper than about 53 degrees isn't standing ground
     private const int Rings = 4;             // if the exact spot fails, try rings around it
     private const float RingStep = 1f;       // metres between rings
     private const int PointsPerRing = 8;     // the first ring; each ring further out tries more
 
-    // Where the centre of a capsule this size can go, as close to target as possible.
+    // Teleports: where the centre of a capsule this size can go, as close to target as possible.
     // Null if nothing within a few metres works. exclude: the body being moved, so it doesn't block itself.
     public static Vector3? Find(Node3D context, Vector3 target, float radius, float height, Rid exclude = default)
     {
         PhysicsDirectSpaceState3D space = context.GetWorld3D().DirectSpaceState;
+        return Search(target, p => TryColumn(space, p + Vector3.Up * ProbeAbove, p + Vector3.Down * ProbeBelow,
+                                             radius, height, exclude));
+    }
 
-        if (TryColumn(space, target, radius, height, exclude) is Vector3 spot) return spot;
+    // Spawning: the highest standing ground under target's x and z, searching the whole height of the world.
+    // Caves underneath don't matter; the first ground from the sky down wins.
+    public static Vector3? FindSurface(Node3D context, Vector3 target, float top, float bottom,
+                                       float radius, float height, Rid exclude = default)
+    {
+        PhysicsDirectSpaceState3D space = context.GetWorld3D().DirectSpaceState;
+        return Search(target, p => TryColumn(space, new Vector3(p.X, top, p.Z), new Vector3(p.X, bottom, p.Z),
+                                             radius, height, exclude));
+    }
+
+    // The spot itself, then rings around it
+    private static Vector3? Search(Vector3 target, System.Func<Vector3, Vector3?> tryAt)
+    {
+        if (tryAt(target) is Vector3 spot) return spot;
 
         for (int ring = 1; ring <= Rings; ring++)
         {
@@ -28,16 +44,17 @@ public static class SafeLanding
             {
                 float angle = Mathf.Tau * i / count;
                 Vector3 offset = new(Mathf.Cos(angle) * ring * RingStep, 0f, Mathf.Sin(angle) * ring * RingStep);
-                if (TryColumn(space, target + offset, radius, height, exclude) is Vector3 found) return found;
+                if (tryAt(target + offset) is Vector3 found) return found;
             }
         }
         return null;
     }
 
-    // Drops a ray down one column. If it lands on standing ground and the capsule fits there, that's the spot.
-    private static Vector3? TryColumn(PhysicsDirectSpaceState3D space, Vector3 point, float radius, float height, Rid exclude)
+    // Casts one ray straight down. If it lands on standing ground and the capsule fits there, that's the spot.
+    private static Vector3? TryColumn(PhysicsDirectSpaceState3D space, Vector3 from, Vector3 to,
+                                      float radius, float height, Rid exclude)
     {
-        var ray = PhysicsRayQueryParameters3D.Create(point + Vector3.Up * ProbeAbove, point + Vector3.Down * ProbeBelow, Solid);
+        var ray = PhysicsRayQueryParameters3D.Create(from, to, Solid);
         ray.HitBackFaces = false;   // a ray starting inside rock passes out through its underside instead of stopping there
         ray.HitFromInside = false;
         if (exclude.IsValid) ray.Exclude = new Godot.Collections.Array<Rid> { exclude };
