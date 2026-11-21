@@ -18,7 +18,7 @@ public partial class SpellCaster : Node
     public bool LocksJump =>
 
         _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.RequiresGround;
-
+    
     // Holding a spell that roots the caster: no moving or jumping until it's released
     public bool LocksMovement =>
         _heldCastId >= 0 && _active.TryGetValue(_heldCastId, out SpellContext held) && held.Spell.RootsWhileHeld;
@@ -482,6 +482,7 @@ public partial class SpellCaster : Node
             Rpc(MethodName.ReplicateCancel, castId);
             return;
         }
+        if (ctx.Spell.Mode == CastMode.Hold) Spend(ctx.SpellIndex);
         Rpc(MethodName.ReplicateRelease, castId, ctx.HeldTime, ctx.AimPoint, ctx.AimNormal, ctx.AimHit);
     }
 

@@ -86,6 +86,8 @@ public partial class Session : Node
         string key = id;
         for (int n = 2; _keys.ContainsValue(key); n++) key = $"{id}#{n}";   // two windows on one computer
         _keys[peer] = key;
+        if (peer == 1) LocalKey = key;
+        else RpcId(peer, MethodName.ReceiveKey, key);   // so the player knows which waystones are theirs
 
         if (WorldSave.Current == null || !WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave data)) return;
         if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
@@ -115,6 +117,12 @@ public partial class Session : Node
         if (!long.TryParse(player.Name, out long peer)) return "";
         return session._keys.TryGetValue(peer, out string key) ? key : "";
     }
+
+    // This machine's own saved-player key, as the host filed it (two windows on one computer get "#2")
+    public static string LocalKey { get; private set; } = "";
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveKey(string key) => LocalKey = key;
 
     // Leaving keeps their character in the world for next time
     private void OnPeerDisconnected(long peer)

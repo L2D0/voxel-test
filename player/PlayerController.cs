@@ -311,6 +311,40 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
     // Moves this player to a safe spot near target. False if nowhere close is safe.
     // Whoever calls it (the host for a spell, the player for a waystone), the player's own machine does the move.
+    // ---------- Interacting and travel ----------
+
+    private const float InteractReach = 3.5f;
+
+    // E: use whatever's under the crosshair, if it's within reach
+    private void TryInteract()
+    {
+        _aimRay.ForceRaycastUpdate();
+        if (!_aimRay.IsColliding()) return;
+        if (GlobalPosition.DistanceTo(_aimRay.GetCollisionPoint()) > InteractReach) return;
+        if (_aimRay.GetCollider() is IInteractable target) target.Interact(this);
+    }
+
+    // Host to owner: go to a far-off point, like a waystone. The host may not have the ground there loaded,
+    // so the owner's machine does it: move, freeze until the terrain is built, then stand on the surface.
+    public void TravelTo(Vector3 point)
+    {
+        if (IsMultiplayerAuthority()) ApplyTravel(point);
+        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveTravel, point);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveTravel(Vector3 point)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host sends people places
+        ApplyTravel(point);
+    }
+
+    private void ApplyTravel(Vector3 point)
+    {
+        GlobalPosition = point;
+        Velocity = Vector3.Zero;
+        (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this);   // same as spawning there
+    }
     // ---------- Loading a save ----------
 
     // Host to owner: put me back where I was saved, with my skills
@@ -572,6 +606,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     {
         if (MenuOpen) return;
         if (e.IsActionPressed("build")) BuildTerrain();
+        if (e.IsActionPressed("interact") && IsMultiplayerAuthority() && !IsDead) TryInteract();
 
         // F2: 30 shield for 6 seconds. Host window only, since only the host changes health.
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F2 }) _health.AddShield(this, 30f, 6f);

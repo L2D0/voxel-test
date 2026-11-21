@@ -66,7 +66,7 @@ public partial class WorldAnchorSpell : SpellDefinition
     public override void Cancel(SpellContext ctx)
     {
         if (ctx.Instance is not Node3D stone || !GodotObject.IsInstanceValid(stone)) return;
-        Tween sink = stone.CreateTween();
+        Tween sink = stone.GetTree().CreateTween();   // the stone doesn't process, so its own tweens never run
         sink.TweenProperty(stone, "global_position", ctx.AimPoint + Vector3.Down * RiseDepth, 0.4);
         sink.TweenCallback(Callable.From(stone.QueueFree));
     }
