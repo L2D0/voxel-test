@@ -23,6 +23,9 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     private float _corpseTimer = -1f;
     private VoxelWorld _world;
 
+    private float _noGroundTime;
+    private const float NoGroundDespawnTime = 5f;   // longer than any chunk takes to build near a player
+
     // What the brain asks the body to do each frame
     private Vector3? _moveTo;
     private float _arriveDistance = 0.5f;
@@ -104,7 +107,15 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
-        if (_world != null && !_world.IsGroundReady(GlobalPosition)) return;   // hold still until there's ground below
+        if (_world != null && !_world.IsGroundReady(GlobalPosition))
+        {
+            // No ground here: either it's still being built (wait), or no player is anywhere near and it was
+            // unloaded (go away, unless it's something the world keeps, like livestock)
+            _noGroundTime += dt;
+            if (_noGroundTime > NoGroundDespawnTime && !Def.Persistent) QueueFree();
+            return;
+        }
+        _noGroundTime = 0f;
         _launchTimer -= dt;
 
         if (_health.IsDead)

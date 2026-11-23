@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 // Puts enemies into the world on every machine. The host decides what spawns and where;
 // a MultiplayerSpawner then creates the same enemy, with the same name, everywhere, including
@@ -16,8 +17,12 @@ public partial class EnemySpawner : Node
     private MultiplayerSpawner _spawner;
     private int _nextId;
 
+    public static EnemySpawner Of(Node anyNode) =>
+        anyNode.GetTree().GetFirstNodeInGroup("enemy_spawner") as EnemySpawner;
+
     public override void _Ready()
     {
+        AddToGroup("enemy_spawner");
         if (EnemyScene == null)
         {
             GD.PushError("EnemySpawner has no EnemyScene");
@@ -43,6 +48,62 @@ public partial class EnemySpawner : Node
 
         string name = $"Enemy_{_nextId++}";
         return _spawner.Spawn(new Godot.Collections.Array { def.ResourcePath, position, name }) as Enemy;
+    }
+
+    // ---------- Saving (host) ----------
+
+    // Everything alive right now. Enemies only exist where players are (they despawn once no player is
+    // near), so this is "what's near players" plus anything Persistent the host is keeping elsewhere.
+    public List<WorldSave.EnemySave> Capture()
+    {
+        var saves = new List<WorldSave.EnemySave>();
+        var packIds = new Dictionary<List<Enemy>, int>();
+
+        foreach (Node node in _enemies.GetChildren())
+        {
+            if (node is not Enemy enemy || enemy.IsQueuedForDeletion() || enemy.Def == null) continue;
+            if (Health.Of(enemy) is not Health health || health.IsDead) continue;   // corpses don't come back
+
+            int pack = -1;
+            if (enemy.Pack != null && !packIds.TryGetValue(enemy.Pack, out pack))
+                packIds[enemy.Pack] = pack = packIds.Count;
+
+            saves.Add(new WorldSave.EnemySave
+            {
+                Path = enemy.Def.ResourcePath,
+                Position = enemy.GlobalPosition,
+                Yaw = enemy.Rotation.Y,
+                Velocity = enemy.Velocity,
+                Health = health.Current,
+                Pack = pack,
+            });
+        }
+        return saves;
+    }
+
+    public void Load(List<WorldSave.EnemySave> saves)
+    {
+        var packs = new Dictionary<int, List<Enemy>>();
+
+        foreach (WorldSave.EnemySave s in saves)
+        {
+            if (!ResourceLoader.Exists(s.Path))
+            {
+                GD.PushWarning($"Saved enemy '{s.Path}' no longer exists; skipped");
+                continue;
+            }
+            if (Spawn(GD.Load<EnemyDefinition>(s.Path), s.Position) is not Enemy enemy) continue;
+
+            enemy.Rotation = new Vector3(0f, s.Yaw, 0f);
+            enemy.Velocity = s.Velocity;   // carries on once the ground under it is built
+            Health.Of(enemy)?.SetCurrent(s.Health);
+
+            if (s.Pack < 0) continue;
+            if (!packs.TryGetValue(s.Pack, out List<Enemy> pack)) packs[s.Pack] = pack = new List<Enemy>();
+            pack.Add(enemy);
+        }
+
+        foreach (List<Enemy> pack in packs.Values) Enemy.FormPack(pack);
     }
 
     // Every machine: build the enemy from what the host sent

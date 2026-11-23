@@ -78,6 +78,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private CapsuleShape3D _capsule;
     private float _standHeight, _pivotHeight;
     private Vector3 _lastPosition;
+    public Vector3 ObservedVelocity { get; private set; }
     private float _stepDistance, _footstepTimer;
     private ModifierStack _mods;
 
@@ -192,6 +193,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         float dt = (float)delta;
         Vector3 moved = GlobalPosition - _lastPosition;
+        ObservedVelocity = moved / Mathf.Max(dt, 0.0001f);   // the host's best guess at other players' velocity
         _lastPosition = GlobalPosition;
         _stepDistance += new Vector3(moved.X, 0f, moved.Z).Length();
 
@@ -348,29 +350,31 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     // ---------- Loading a save ----------
 
     // Host to owner: put me back where I was saved, with my skills
-    public void RestoreFromSave(bool hasPosition, Vector3 position, string[] skills)
+    public void RestoreFromSave(bool hasPosition, Vector3 position, Vector3 velocity, string[] skills)
     {
-        if (IsMultiplayerAuthority()) ApplySave(hasPosition, position, skills);
-        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveSave, hasPosition, position, skills);
+        if (IsMultiplayerAuthority()) ApplySave(hasPosition, position, velocity, skills);
+        else RpcId(GetMultiplayerAuthority(), MethodName.ReceiveSave, hasPosition, position, velocity, skills);
     }
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReceiveSave(bool hasPosition, Vector3 position, string[] skills)
+    private void ReceiveSave(bool hasPosition, Vector3 position, Vector3 velocity, string[] skills)
     {
         if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host restores characters
-        ApplySave(hasPosition, position, skills);
+        ApplySave(hasPosition, position, velocity, skills);
     }
 
-    private void ApplySave(bool hasPosition, Vector3 position, string[] skills)
+    private void ApplySave(bool hasPosition, Vector3 position, Vector3 velocity, string[] skills)
     {
         if (hasPosition)
         {
             GlobalPosition = position;
-            Velocity = Vector3.Zero;
+            Velocity = velocity;   // frozen below until the ground loads, then you carry on exactly as you were
             // Wait for the ground there to be built, but keep the exact spot: you might have saved in a cave
             (GetTree().GetFirstNodeInGroup("voxel_world") as VoxelWorld)?.SetPlayer(this, placeOnSurface: false);
         }
         Skills?.Restore(skills);
+
+    Skills?.Restore(skills);
     }
     // Spawning and respawning: stand on the ground under the spawn point, wherever this seed put it
     public bool TryPlaceOnSurface(VoxelWorld world)

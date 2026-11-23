@@ -38,6 +38,7 @@ public partial class Session : Node
         World.Initialize(seed);
         SendIdentity();
         if (save != null) StructureManager.Of(this)?.Load(save.Structures);   // host; the spawner sends them to everyone
+        if (save != null) EnemySpawner.Of(this)?.Load(save.Enemies);
 
         if (!Multiplayer.IsServer()) return;   // only the host spawns players and sets the rules
 
@@ -96,7 +97,7 @@ public partial class Session : Node
 
         bool alive = data.Health > 0f;
         if (alive) Health.Of(player)?.SetCurrent(data.Health);
-        player.RestoreFromSave(alive, data.Position, data.Skills);   // dead at save time: back at spawn, full health
+        player.RestoreFromSave(alive, data.Position, data.Velocity, data.Skills);   // dead at save time: back at spawn, full health
     }
 
     private void CapturePlayer(long peer)
@@ -108,6 +109,9 @@ public partial class Session : Node
         save.Position = player.GlobalPosition;
         save.Health = Health.Of(player)?.Current ?? 0f;
         save.Skills = player.Skills?.UnlockedIds() ?? System.Array.Empty<string>();
+
+        // Your own machine knows your real velocity; for other players the host goes by how fast they're moving
+        save.Velocity = player.IsMultiplayerAuthority() ? player.Velocity : player.ObservedVelocity;
     }
 
     // The saved-player key of a player node (named after its peer id). Host only; "" if unknown.
@@ -230,8 +234,9 @@ public partial class Session : Node
         save.Edits = new List<TerrainEdit>(World.EditLog);
         foreach (long peer in _keys.Keys) CapturePlayer(peer);   // offline players keep what they left with
         save.Structures = StructureManager.Of(this)?.Capture() ?? new List<WorldSave.StructureSave>();
+        save.Enemies = EnemySpawner.Of(this)?.Capture() ?? new List<WorldSave.EnemySave>();
         save.Save();
-        GD.Print($"Saved world '{save.Name}': {save.Edits.Count} terrain edits, {save.Players.Count} players, {save.Structures.Count} structures");
+        GD.Print($"Saved world '{save.Name}': {save.Edits.Count} terrain edits, {save.Players.Count} players, {save.Structures.Count} structures, {save.Enemies.Count} enemies");
     }
 
     // ---------- Players ----------

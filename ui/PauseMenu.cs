@@ -2,14 +2,18 @@ using Godot;
 
 public partial class PauseMenu : CanvasLayer
 {
-    private Label _drawDistanceLabel;
+    private Control _main;             // the pause menu's own buttons
+    private CenterContainer _settings; // the settings page, while it's open
 
     public override void _Ready()
     {
         Visible = false;
-        _drawDistanceLabel = GetNode<Label>("%DrawDistanceLabel");
-
         GetNode<Button>("%ResumeButton").Pressed += Close;
+        _main = GetNode<Control>("%ResumeButton").GetParent<Control>();
+
+        // Draw distance moved into the shared settings page
+        GetNode<Control>("%DrawDistanceSlider").Visible = false;
+        GetNode<Control>("%DrawDistanceLabel").Visible = false;
 
         // Save world: host only, saves right now without quitting
         var resume = GetNode<Button>("%ResumeButton");
@@ -23,22 +27,35 @@ public partial class PauseMenu : CanvasLayer
             GetTree().Quit();
         };
 
-        var slider = GetNode<HSlider>("%DrawDistanceSlider");
-        slider.Value = Settings.DrawDistance;
-        slider.ValueChanged += value =>
-        {
-            Settings.DrawDistance = (int)value;
-            UpdateLabel();
-        };
+        var settingsButton = new Button { Text = "Settings" };
+        resume.GetParent().AddChild(settingsButton);
+        resume.GetParent().MoveChild(settingsButton, saveButton.GetIndex() + 1);
+        settingsButton.Pressed += OpenSettings;
+    }
 
-        UpdateLabel();
+    private void OpenSettings()
+    {
+        _main.Visible = false;
+        _settings = new CenterContainer();
+        AddChild(_settings);
+        _settings.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _settings.AddChild(new SettingsPanel { OnBack = CloseSettings });
+    }
+
+    private void CloseSettings()
+    {
+        Settings.Save();   // Back already saved; this covers leaving with Esc
+        _settings?.QueueFree();
+        _settings = null;
+        _main.Visible = true;
     }
 
     public override void _UnhandledInput(InputEvent e)
     {
         if (!e.IsActionPressed("ui_cancel")) return;
 
-        if (Visible) Close();
+        if (_settings != null) CloseSettings();   // Esc on the settings page goes back a step
+        else if (Visible) Close();
         else if (GameState.InGame) Open();   // nothing to pause before you've spawned
         GetViewport().SetInputAsHandled();
     }
@@ -60,10 +77,10 @@ public partial class PauseMenu : CanvasLayer
 
     private void Close()
     {
+        if (_settings != null) CloseSettings();
         Visible = false;
         GameState.MenuOpen = false;
         Input.MouseMode = GameState.InGame ? Input.MouseModeEnum.Captured : Input.MouseModeEnum.Visible;
     }
 
-    private void UpdateLabel() => _drawDistanceLabel.Text = $"Draw distance: {Settings.DrawDistance} chunks";
 }

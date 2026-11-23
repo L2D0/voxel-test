@@ -48,6 +48,7 @@ public partial class Enemy
     private float _calmTimer;      // roamers: gave up after going too far; ignores everything until this runs out
     private Vector3 _chaseOrigin;  // where the chase began; the leash measures from here
     private List<Enemy> _pack;     // everyone it spawned with, if it's a pack animal; host only
+    public List<Enemy> Pack => _pack;   // the save keeps packs together
 
     private bool Calm => _leashed || _calmTimer > 0f;
 

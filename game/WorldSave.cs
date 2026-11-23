@@ -2,14 +2,15 @@ using Godot;
 using System.Collections.Generic;
 
 // One world on disk: its seed, its rules, every terrain edit since it was made, every player who has
-// played in it, and every structure they've placed. Enemies join it later (pipeline 4.3).
+// played in it, every structure they've placed, and the creatures alive near players when it was saved.
 // Only the host has one; clients get everything they need from the host when they join.
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 4;           // bump when the layout changes; old versions get read with their old layout
+    private const int Version = 5;           // bump when the layout changes; old versions get read with their old layout
                                              // 1: seed, rules, edits.  2: + players.  3: + structures.
-                                             // 4: + structure ids, players' waystone lists
+                                             // 4: + structure ids, players' waystone lists.
+                                             // 5: + player velocity, enemies
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -20,6 +21,18 @@ public class WorldSave
     public List<TerrainEdit> Edits = new();
     public Dictionary<string, PlayerSave> Players = new();   // by PlayerIdentity id, including players who are offline
     public List<StructureSave> Structures = new();            // oldest first
+    public List<EnemySave> Enemies = new();
+
+    // One creature that was alive when the world was saved
+    public class EnemySave
+    {
+        public string Path;      // its EnemyDefinition
+        public Vector3 Position;
+        public float Yaw;
+        public Vector3 Velocity; // mid-launch or mid-fall stays that way
+        public float Health;
+        public int Pack = -1;    // creatures with the same number were one pack; -1 = alone
+    }
 
     // One placed structure
     public class StructureSave
@@ -39,6 +52,7 @@ public class WorldSave
         public float Health;     // 0 = died before the save; comes back at spawn on full health
         public string[] Skills = System.Array.Empty<string>();
         public Dictionary<string, string> Waystones = new();   // structure id -> the name this player gave it
+        public Vector3 Velocity;   // saved mid-fall means loaded mid-fall: no dodging fall damage by reloading
     }
 
     private static string FolderOf(string name) => $"user://worlds/{name}";
@@ -103,6 +117,7 @@ public class WorldSave
                     int known = (int)file.Get32();
                     for (int w = 0; w < known; w++) player.Waystones[file.GetPascalString()] = file.GetPascalString();
                 }
+                if (version >= 5) player.Velocity = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat());
                 save.Players[key] = player;
             }
         }
@@ -119,6 +134,21 @@ public class WorldSave
                     Yaw = file.GetFloat(),
                     Owner = file.GetPascalString(),
                     Health = file.GetFloat(),
+                });
+        }
+
+        if (version >= 5)
+        {
+            int enemies = (int)file.Get32();
+            for (int i = 0; i < enemies; i++)
+                save.Enemies.Add(new EnemySave
+                {
+                    Path = file.GetPascalString(),
+                    Position = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat()),
+                    Yaw = file.GetFloat(),
+                    Velocity = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat()),
+                    Health = file.GetFloat(),
+                    Pack = (int)file.Get32(),
                 });
         }
         return save;
@@ -169,6 +199,9 @@ public class WorldSave
                     file.StorePascalString(id);
                     file.StorePascalString(name);
                 }
+                file.StoreFloat(player.Velocity.X);
+                file.StoreFloat(player.Velocity.Y);
+                file.StoreFloat(player.Velocity.Z);
             }
 
             file.Store32((uint)Structures.Count);
@@ -182,6 +215,21 @@ public class WorldSave
                 file.StoreFloat(s.Yaw);
                 file.StorePascalString(s.Owner ?? "");
                 file.StoreFloat(s.Health);
+            }
+
+            file.Store32((uint)Enemies.Count);
+            foreach (EnemySave e in Enemies)
+            {
+                file.StorePascalString(e.Path);
+                file.StoreFloat(e.Position.X);
+                file.StoreFloat(e.Position.Y);
+                file.StoreFloat(e.Position.Z);
+                file.StoreFloat(e.Yaw);
+                file.StoreFloat(e.Velocity.X);
+                file.StoreFloat(e.Velocity.Y);
+                file.StoreFloat(e.Velocity.Z);
+                file.StoreFloat(e.Health);
+                file.Store32((uint)e.Pack);
             }
         }
 
