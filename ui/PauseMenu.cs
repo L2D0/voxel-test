@@ -25,13 +25,13 @@ public partial class PauseMenu : CanvasLayer
         {
             GetTree().Root.PropagateNotification((int)NotificationWMCloseRequest);   // lets the host save first
             GetTree().Quit();
-
-            var quitToMenu = new Button { Text = "Quit to menu" };
-            var quit = GetNode<Button>("%QuitButton");
-            quit.GetParent().AddChild(quitToMenu);
-            quit.GetParent().MoveChild(quitToMenu, quit.GetIndex());   // just above Quit
-            quitToMenu.Pressed += () => (GetTree().GetFirstNodeInGroup("session") as Session)?.QuitToMenu();
         };
+
+        var quitToMenu = new Button { Text = "Quit to menu" };
+        var quit = GetNode<Button>("%QuitButton");
+        quit.GetParent().AddChild(quitToMenu);
+        quit.GetParent().MoveChild(quitToMenu, quit.GetIndex());   // just above Quit
+        quitToMenu.Pressed += () => (GetTree().GetFirstNodeInGroup("session") as Session)?.QuitToMenu();
 
         var settingsButton = new Button { Text = "Settings" };
         resume.GetParent().AddChild(settingsButton);

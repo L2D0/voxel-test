@@ -13,7 +13,7 @@ public partial class Session : Node
     [Export] public float AutosaveInterval = 300f;       // seconds; the host also saves when the game closes
 
     private float _autosaveTimer;
-    private bool _hostHooks;   // hooked into connections as host; undone on the way out
+        private bool _hostHooks;   // hooked into connections as host; undone on the way out
     private bool _leaving;
     private readonly Dictionary<long, string> _keys = new();   // host: peer id -> the key their save is filed under
 
