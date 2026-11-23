@@ -319,7 +319,12 @@ public partial class Enemy : CharacterBody3D, IImpulseReceiver
         _corpseTimer = Def?.CorpseTime ?? 4f;
         _threat.Clear();
         UpdateLabel();
-        // Loot drops go here once items exist (pipeline 6.9)
+
+        // Host: roll each line of the loot table and drop what comes up
+        if (Multiplayer.IsServer() && Def != null)
+            foreach (LootEntry entry in Def.Loot)
+                if (entry != null && GD.Randf() < entry.Chance)
+                    ItemDropManager.Of(this)?.Drop(entry.ItemId, GD.RandRange(entry.MinCount, entry.MaxCount), GlobalPosition);
     }
 
     // Host only. Freeing a node the spawner created removes it on every machine.

@@ -16,6 +16,8 @@
 [ext_resource type="Resource" uid="uid://0a5nq6ytw77y" path="res://combat/enemies/test_critter.tres" id="14_wlxy5"]
 [ext_resource type="Script" uid="uid://br5qjtnydaql3" path="res://structures/StructureManager.cs" id="15_3v7ru"]
 [ext_resource type="Script" uid="uid://dhirgks2421qd" path="res://ui/DebugPanel.cs" id="16_tcnuu"]
+[ext_resource type="Script" uid="uid://drah8bfova4nj" path="res://items/ItemDropManager.cs" id="17_i0g27"]
+[ext_resource type="Script" uid="uid://bscct2xht54h0" path="res://ui/InventoryWindow.cs" id="18_ealrb"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
 
@@ -63,3 +65,9 @@ script = ExtResource("15_3v7ru")
 
 [node name="DebugPanel" type="CanvasLayer" parent="." unique_id=188113286]
 script = ExtResource("16_tcnuu")
+
+[node name="ItemDropManager" type="Node" parent="." unique_id=1211152544]
+script = ExtResource("17_i0g27")
+
+[node name="InventoryWindow" type="CanvasLayer" parent="." unique_id=76413523]
+script = ExtResource("18_ealrb")

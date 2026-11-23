@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Id = "downy_fluff"
+DisplayName = "Downy Fluff"
+Description = "A pinch of rabbit underfur, so light it drifts when dropped."
+MaxStack = 64
+Tint = Color(0.95, 0.93, 0.88, 1)

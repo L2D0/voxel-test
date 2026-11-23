@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Id = "rabbit_whisker"
+DisplayName = "Rabbit Whisker"
+Description = "Rabbits feel the air with these."
+MaxStack = 64
+Tint = Color(0.75, 0.72, 0.65, 1)

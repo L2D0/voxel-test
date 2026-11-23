@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://dkn55517aj2u0" path="res://skills/SkillTree.cs" id="14_wodsf"]
 [ext_resource type="PackedScene" uid="uid://v7wt7fu0rrhb" path="res://ui/GameMenu.tscn" id="15_32hag"]
 [ext_resource type="Script" uid="uid://dausg6lne3bs5" path="res://combat/Stamina.cs" id="18_e7oew"]
+[ext_resource type="Script" uid="uid://o5elfn1v4e3t" path="res://items/Inventory.cs" id="21_x7c3f"]
 [ext_resource type="Script" uid="uid://5nweffoxyeu2" path="res://combat/StatusEffects.cs" id="24_g4c7l"]
 [ext_resource type="Script" uid="uid://cn67b2tnva6jk" path="res://combat/Mana.cs" id="26_uw77l"]
 
@@ -155,3 +156,6 @@ script = ExtResource("26_uw77l")
 
 [node name="Stamina" type="Node" parent="." unique_id=372775605]
 script = ExtResource("18_e7oew")
+
+[node name="Inventory" type="Node" parent="." unique_id=1046139536]
+script = ExtResource("21_x7c3f")

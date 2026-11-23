@@ -101,6 +101,7 @@ public partial class Session : Node
         bool alive = data.Health > 0f;
         if (alive) Health.Of(player)?.SetCurrent(data.Health);
         player.RestoreFromSave(alive, data.Position, data.Velocity, data.Skills);   // dead at save time: back at spawn, full health
+        Inventory.Of(player)?.Load(data.ItemIds, data.ItemCounts);   // the host holds the real inventory
     }
 
     private void CapturePlayer(long peer)
@@ -115,6 +116,11 @@ public partial class Session : Node
 
         // Your own machine knows your real velocity; for other players the host goes by how fast they're moving
         save.Velocity = player.IsMultiplayerAuthority() ? player.Velocity : player.ObservedVelocity;
+        if (Inventory.Of(player) is Inventory inventory)
+        {
+            save.ItemIds = inventory.SlotIds();
+            save.ItemCounts = inventory.SlotCounts();
+        }
     }
 
     // The saved-player key of a player node (named after its peer id). Host only; "" if unknown.

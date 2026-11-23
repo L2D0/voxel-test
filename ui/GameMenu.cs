@@ -19,7 +19,11 @@ public partial class GameMenu : CanvasLayer
         _magic = treeView;
 
         GetNode<Button>("%MagicButton").Pressed += () => ShowPage(Page.Magic);
-        GetNode<Button>("%PhysicalButton").Pressed += () => ShowPage(Page.Wip);
+        GetNode<Button>("%InventoryButton").Pressed += () =>
+        {
+            Close();
+            (GetTree().GetFirstNodeInGroup("inventory_window") as InventoryWindow)?.Open();
+        };
         GetNode<Button>("%InventoryButton").Pressed += () => ShowPage(Page.Wip);
 
         ShowPage(Page.Closed);

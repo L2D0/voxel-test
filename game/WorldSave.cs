@@ -7,10 +7,10 @@ using System.Collections.Generic;
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 5;           // bump when the layout changes; old versions get read with their old layout
+    private const int Version = 6;           // bump when the layout changes; old versions get read with their old layout
                                              // 1: seed, rules, edits.  2: + players.  3: + structures.
                                              // 4: + structure ids, players' waystone lists.
-                                             // 5: + player velocity, enemies
+                                             // 5: + player velocity, enemies.  6: + player inventories
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -48,6 +48,8 @@ public class WorldSave
     // One player's character in this world
     public class PlayerSave
     {
+        public string[] ItemIds = System.Array.Empty<string>();   // inventory, slot by slot ("" = empty)
+        public int[] ItemCounts = System.Array.Empty<int>();
         public Vector3 Position;
         public float Health;     // 0 = died before the save; comes back at spawn on full health
         public string[] Skills = System.Array.Empty<string>();
@@ -118,6 +120,17 @@ public class WorldSave
                     for (int w = 0; w < known; w++) player.Waystones[file.GetPascalString()] = file.GetPascalString();
                 }
                 if (version >= 5) player.Velocity = new Vector3(file.GetFloat(), file.GetFloat(), file.GetFloat());
+                if (version >= 6)
+                {
+                    int slots = (int)file.Get32();
+                    player.ItemIds = new string[slots];
+                    player.ItemCounts = new int[slots];
+                    for (int s = 0; s < slots; s++)
+                    {
+                        player.ItemIds[s] = file.GetPascalString();
+                        player.ItemCounts[s] = (int)file.Get32();
+                    }
+                }
                 save.Players[key] = player;
             }
         }
@@ -202,6 +215,12 @@ public class WorldSave
                 file.StoreFloat(player.Velocity.X);
                 file.StoreFloat(player.Velocity.Y);
                 file.StoreFloat(player.Velocity.Z);
+                file.Store32((uint)player.ItemIds.Length);
+                for (int s = 0; s < player.ItemIds.Length; s++)
+                {
+                    file.StorePascalString(player.ItemIds[s] ?? "");
+                    file.Store32((uint)(s < player.ItemCounts.Length ? player.ItemCounts[s] : 0));
+                }
             }
 
             file.Store32((uint)Structures.Count);

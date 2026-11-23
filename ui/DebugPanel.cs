@@ -78,6 +78,7 @@ public partial class DebugPanel : CanvasLayer
         Add(list, "Heal to full", () => Me()?.DebugHeal());
         Add(list, "Refill mana and stamina", () => Me()?.DebugRefill());
         Add(list, "Teleport to crosshair", () => Me()?.DebugTeleportToCrosshair());
+        Add(list, "Give 5 of every item", () => Inventory.Of(Me())?.DebugGiveAll());
         _modsButton = Add(list, "", () => { Me()?.ToggleDebugModifiers(); Refresh(); });
 
         Section(list, "Enemies");
