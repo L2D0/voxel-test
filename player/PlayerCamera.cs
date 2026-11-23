@@ -35,7 +35,8 @@ public partial class PlayerCamera : Node3D
         _shoulderRay.AddException(_player);
         _springArm.AddExcludedObject(_player.GetRid());
         _thirdPersonHeight = Position.Y;
-        _camera.Fov = ThirdPersonFov;
+        ApplyFov();
+        Settings.Changed += ApplyFov;
 
         Input.MouseMode = Input.MouseModeEnum.Captured;
     }
@@ -54,9 +55,9 @@ public partial class PlayerCamera : Node3D
         if (e is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
         {
             Vector3 rot = Rotation;
-            rot.Y -= motion.Relative.X * MouseSensitivity;
-            rot.X = Mathf.Clamp(rot.X - motion.Relative.Y * MouseSensitivity,
-                Mathf.DegToRad(-80f), Mathf.DegToRad(70f));
+            rot.Y -= motion.Relative.X * MouseSensitivity * Settings.MouseSensitivity;
+            rot.X = Mathf.Clamp(rot.X - motion.Relative.Y * MouseSensitivity * Settings.MouseSensitivity,
+            Mathf.DegToRad(-80f), Mathf.DegToRad(70f));
             Rotation = rot;
         }
 
@@ -64,11 +65,15 @@ public partial class PlayerCamera : Node3D
         if (e.IsActionPressed("toggle_view")) SetFirstPerson(!FirstPerson);
     }
 
+    // From settings; first person sits 5 degrees wider
+    private void ApplyFov() => _camera.Fov = Settings.Fov + (FirstPerson ? 5f : 0f);
+
+    public override void _ExitTree() => Settings.Changed -= ApplyFov;   // settings outlive the camera
     private void SetFirstPerson(bool firstPerson)
     {
         FirstPerson = firstPerson;
         Position = new Vector3(0, firstPerson ? FirstPersonHeight : _thirdPersonHeight, 0);
-        _camera.Fov = firstPerson ? FirstPersonFov : ThirdPersonFov;
+        ApplyFov();
 
         if (firstPerson)
         {

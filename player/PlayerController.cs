@@ -78,6 +78,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     private CapsuleShape3D _capsule;
     private float _standHeight, _pivotHeight;
     private Vector3 _lastPosition;
+    private bool _crouchToggled;
     public Vector3 ObservedVelocity { get; private set; }
     private float _stepDistance, _footstepTimer;
     private ModifierStack _mods;
@@ -428,7 +429,11 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
 
         IsAiming = canAct && Input.IsActionPressed("aim") && !(_caster?.AimReplaced ?? false);   // alt-fire spells own right click
                                                                                                  // Crouch: hold to stay down. Standing back up waits for headroom.
-        bool wantCrouch = canAct && Input.IsActionPressed("crouch");
+                                                                                                 // Hold C, or press to toggle if that's set. Sprinting cancels a toggled crouch.
+        if (!Settings.CrouchToggle) _crouchToggled = false;
+        else if (canAct && Input.IsActionJustPressed("crouch")) _crouchToggled = !_crouchToggled;
+        if (Input.IsActionJustPressed("sprint")) _crouchToggled = false;
+        bool wantCrouch = Settings.CrouchToggle ? _crouchToggled : canAct && Input.IsActionPressed("crouch");
         if (wantCrouch != IsCrouching && (wantCrouch || CanStand())) Rpc(MethodName.SetCrouched, wantCrouch);
         // Sprint: pressing it breaks combat stance, so it's how you disengage. Casting again ends it.
         if (canAct && Input.IsActionJustPressed("sprint")) _combatTimer = 0f;

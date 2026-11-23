@@ -239,8 +239,35 @@ public class WorldSave
         IsNew = false;
     }
 
+    // Throws the whole world away: its file, any half-finished save, and its folder
     public static void Delete(string name)
     {
         DirAccess.RemoveAbsolute(FileOf(name));
+        DirAccess.RemoveAbsolute(FileOf(name) + ".tmp");
+        DirAccess.RemoveAbsolute(FolderOf(name));
+    }
+
+    // Every saved world, most recently played first
+    public static List<(string Name, ulong Modified)> ListWorlds()
+    {
+        var worlds = new List<(string Name, ulong Modified)>();
+        using DirAccess dir = DirAccess.Open("user://worlds");
+        if (dir == null) return worlds;
+
+        foreach (string name in dir.GetDirectories())
+            if (Exists(name)) worlds.Add((name, FileAccess.GetModifiedTime(FileOf(name))));
+        worlds.Sort((a, b) => b.Modified.CompareTo(a.Modified));
+        return worlds;
+    }
+
+    // A world's name is its folder name, so keep it to characters every OS accepts
+    public static string CleanName(string name)
+    {
+        var clean = new System.Text.StringBuilder();
+        foreach (char c in (name ?? "").StripEdges())
+            if (char.IsLetterOrDigit(c) || c == ' ' || c == '-' || c == '_') clean.Append(c);
+        string result = clean.ToString().StripEdges();
+        if (result.Length > 32) result = result[..32];
+        return result == "" ? "New World" : result;
     }
 }

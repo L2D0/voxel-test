@@ -44,7 +44,7 @@ public partial class Session : Node
 
         // Static, so set every session and an old value never carries over.
         // A new world takes the export; a loaded one keeps what it was saved with.
-        Teams.FriendlyFire = save == null || save.IsNew ? FriendlyFire : save.FriendlyFire;
+        Teams.FriendlyFire = save?.FriendlyFire ?? FriendlyFire;   // a new world carries the choice made on creation
         SpawnPlayer(1);
         RegisterPlayer(1, PlayerIdentity.Id);
         Multiplayer.PeerConnected += SpawnPlayer;
