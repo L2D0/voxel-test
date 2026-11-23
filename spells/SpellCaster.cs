@@ -317,7 +317,7 @@ public partial class SpellCaster : Node
             else if (_charges[i] < max && !(Spells[i].RechargeAfterEnd && RunningCastOf(i) != null))
                 _charges[i] = Mathf.Min(_charges[i] + dt / RechargeTimeOf(i), max);
         }
-
+        
         UpdatePreview();
     }
 

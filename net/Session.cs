@@ -13,6 +13,8 @@ public partial class Session : Node
     [Export] public float AutosaveInterval = 300f;       // seconds; the host also saves when the game closes
 
     private float _autosaveTimer;
+    private bool _hostHooks;   // hooked into connections as host; undone on the way out
+    private bool _leaving;
     private readonly Dictionary<long, string> _keys = new();   // host: peer id -> the key their save is filed under
 
     public override void _Ready()
@@ -27,7 +29,9 @@ public partial class Session : Node
         Spawner.SpawnFunction = Callable.From<Variant, Node>(CreatePlayer);
         AddToGroup("session");   // the pause menu's Save button finds it here
 
-        GetNode<NetworkManager>("/root/NetworkManager").SessionStarted += OnSessionStarted;
+        var net = GetNode<NetworkManager>("/root/NetworkManager");
+        net.SessionStarted += OnSessionStarted;
+        net.SessionEnded += ReturnToMenu;   // the host went away, or never answered
     }
 
     private void OnSessionStarted(int seed)
@@ -48,8 +52,9 @@ public partial class Session : Node
         SpawnPlayer(1);
         RegisterPlayer(1, PlayerIdentity.Id);
         Multiplayer.PeerConnected += SpawnPlayer;
-        Multiplayer.PeerConnected += id => RpcId(id, MethodName.ReceiveRules, Teams.FriendlyFire);
+        Multiplayer.PeerConnected += SendRules;
         Multiplayer.PeerDisconnected += OnPeerDisconnected;
+        _hostHooks = true;
     }
 
     // Client: the session has started (the host sent the seed), so say who we are
@@ -200,6 +205,52 @@ public partial class Session : Node
         CapturePlayer(peer);
         _keys.Remove(peer);
         Players.GetNodeOrNull(peer.ToString())?.QueueFree();
+    }
+
+    // ---------- Leaving ----------
+
+    private void SendRules(long peer) => RpcId(peer, MethodName.ReceiveRules, Teams.FriendlyFire);
+
+    // Pause menu: the host saves first, then everyone goes back to the main menu
+    public void QuitToMenu()
+    {
+        if (Multiplayer.IsServer()) SaveWorld();
+        ReturnToMenu();
+    }
+
+    // Also runs on a client when the host goes away or can't be reached
+    private void ReturnToMenu()
+    {
+        if (_leaving) return;
+        _leaving = true;
+
+        GetNode<NetworkManager>("/root/NetworkManager").Leave();
+
+        // Shared state the session leaves behind, so the next one starts clean
+        WorldSave.Current = null;
+        LocalKey = "";
+        LocalWaystones = new Dictionary<string, string>();
+        Teams.FriendlyFire = false;
+        GameState.MenuOpen = false;
+        GameState.InGame = false;
+        GameState.FreeCam = false;
+
+        GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);   // the menu is part of the main scene
+    }
+
+    public override void _ExitTree()
+    {
+        if (_hostHooks)
+        {
+            Multiplayer.PeerConnected -= SpawnPlayer;
+            Multiplayer.PeerConnected -= SendRules;
+            Multiplayer.PeerDisconnected -= OnPeerDisconnected;
+        }
+        if (GetNodeOrNull<NetworkManager>("/root/NetworkManager") is NetworkManager net)
+        {
+            net.SessionStarted -= OnSessionStarted;
+            net.SessionEnded -= ReturnToMenu;
+        }
     }
 
     // ---------- Saving (host) ----------

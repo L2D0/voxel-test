@@ -56,6 +56,7 @@ public partial class VoxelWorld : Node3D
     private readonly List<(Vector3I Center, int Radius)> _lastAreas = new();
     private bool _dirty = true;
     private bool _spawnReady;
+    private bool _sendingEditLogs;
     private int _spawnTries;
     private bool _placeOnSurface = true;
     private bool _initialized;
@@ -74,6 +75,7 @@ public partial class VoxelWorld : Node3D
     {
         // Static events keep subscribers alive: always unsubscribe on the way out
         Settings.DrawDistanceChanged -= OnDrawDistanceChanged;
+        if (_sendingEditLogs) Multiplayer.PeerConnected -= SendEditLog;
     }
 
     // Called once the session knows the world seed (host: immediately, client: when received)

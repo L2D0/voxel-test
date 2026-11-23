@@ -61,7 +61,6 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public float Visibility => IsCrouching ? CrouchVisibility : 1f;   // enemies' sight range scales by this
     public SkillTree Skills { get; private set; }
     public bool MenuOpen => GameState.MenuOpen || GameState.FreeCam;   // free cam: the body stands still
-    public bool MenuOpen => GameState.MenuOpen;
     public bool IsStunned => _statuses?.IsStunned ?? false;
     public bool IsRooted => (_statuses?.IsRooted ?? false) || (_caster?.LocksMovement ?? false);
     public bool IsDead => _health != null && _health.IsDead;
