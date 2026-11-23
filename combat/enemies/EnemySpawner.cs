@@ -121,15 +121,15 @@ public partial class EnemySpawner : Node
 
     // ---------- Debug ----------
 
-    public override void _UnhandledInput(InputEvent e)
+    // Debug panel: what each slot spawns
+    public string DebugName(int which) => DebugDef(which)?.DisplayName;
+
+    // Debug panel: a group in front of whoever asked
+    public void DebugSpawn(int which)
     {
-        if (e is not InputEventKey { Pressed: true, Echo: false } key || !GameState.InGame) return;
-
-        int which = key.Keycode == DebugKey ? 0 : key.Keycode == DebugKey2 ? 1 : -1;
         EnemyDefinition def = DebugDef(which);
-        if (def == null) return;
+        if (def == null || !GameState.InGame) return;
 
-        // Spawn in front of whoever pressed it
         Node3D me = FindLocalPlayer();
         if (me == null) return;
 

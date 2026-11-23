@@ -63,14 +63,12 @@ public partial class Session : Node
     [Rpc(MultiplayerApi.RpcMode.Authority, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
     private void ReceiveRules(bool friendlyFire) => Teams.FriendlyFire = friendlyFire;
 
-    public override void _UnhandledInput(InputEvent e)
+    // Debug panel, host only: flip friendly fire for everyone
+    public void ToggleFriendlyFire()
     {
-        if (e is not InputEventKey { Pressed: true, Echo: false } key || key.Keycode != FriendlyFireDebugKey) return;
-        if (!Multiplayer.IsServer() || !GameState.InGame) return;
-
+        if (!Multiplayer.IsServer()) return;
         Teams.FriendlyFire = !Teams.FriendlyFire;
         Rpc(MethodName.ReceiveRules, Teams.FriendlyFire);
-        GD.Print($"Friendly fire {(Teams.FriendlyFire ? "on" : "off")}");
     }
 
     // ---------- Players' saves (host) ----------

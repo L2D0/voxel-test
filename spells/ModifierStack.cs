@@ -59,19 +59,12 @@ public partial class ModifierStack : Node
         return (baseValue + flat) * (1f + percent) * multiplier;
     }
 
-    public override void _UnhandledInput(InputEvent e)
-    {
-        if (!e.IsActionPressed("debug_modifiers")) return;
+    // Debug panel: the test modifiers on the player, on or off
+    public bool DebugOn => HasSource(this);
 
-        if (HasSource(this))
-        {
-            RemoveSource(this);
-            GD.Print("Debug modifiers OFF");
-        }
-        else
-        {
-            foreach (StatModifier mod in DebugModifiers) Add(mod, this);
-            GD.Print("Debug modifiers ON");
-        }
+    public void ToggleDebug()
+    {
+        if (DebugOn) RemoveSource(this);
+        else foreach (StatModifier mod in DebugModifiers) Add(mod, this);
     }
 }

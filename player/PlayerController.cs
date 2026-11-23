@@ -60,6 +60,7 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
     public bool IsCrouching { get; private set; }
     public float Visibility => IsCrouching ? CrouchVisibility : 1f;   // enemies' sight range scales by this
     public SkillTree Skills { get; private set; }
+    public bool MenuOpen => GameState.MenuOpen || GameState.FreeCam;   // free cam: the body stands still
     public bool MenuOpen => GameState.MenuOpen;
     public bool IsStunned => _statuses?.IsStunned ?? false;
     public bool IsRooted => (_statuses?.IsRooted ?? false) || (_caster?.LocksMovement ?? false);
@@ -616,16 +617,45 @@ public partial class PlayerController : CharacterBody3D, IImpulseReceiver, ICast
         if (MenuOpen) return;
         if (e.IsActionPressed("build")) BuildTerrain();
         if (e.IsActionPressed("interact") && IsMultiplayerAuthority() && !IsDead) TryInteract();
-
-        // F2: 30 shield for 6 seconds. Host window only, since only the host changes health.
-        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F2 }) _health.AddShield(this, 30f, 6f);
-        // F3: teleport to the crosshair through the safe-landing helper
-        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F3 } && IsMultiplayerAuthority())
-        {
-            _aimRay.ForceRaycastUpdate();
-            if (_aimRay.IsColliding()) TeleportNear(_aimRay.GetCollisionPoint());
-        }
     }
+
+    // ---------- Debug (the F1 panel calls these) ----------
+
+    // Health only changes on the host, so a client asks for it
+    public void DebugShield()
+    {
+        if (Multiplayer.IsServer()) _health.AddShield(this, 30f, 6f);
+        else RpcId(1, MethodName.ReceiveDebug, 0);
+    }
+
+    public void DebugHeal()
+    {
+        if (Multiplayer.IsServer()) _health.SetCurrent(_health.Max);
+        else RpcId(1, MethodName.ReceiveDebug, 1);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveDebug(int what)
+    {
+        if (!Multiplayer.IsServer() || Multiplayer.GetRemoteSenderId() != GetMultiplayerAuthority()) return;
+        if (what == 0) _health.AddShield(this, 30f, 6f);
+        else _health.SetCurrent(_health.Max);
+    }
+
+    public void DebugRefill()
+    {
+        GetNodeOrNull<Mana>("Mana")?.Restore(9999f);
+        _stamina?.Restore(9999f);
+    }
+
+    public void DebugTeleportToCrosshair()
+    {
+        _aimRay.ForceRaycastUpdate();
+        if (_aimRay.IsColliding()) TeleportNear(_aimRay.GetCollisionPoint());
+    }
+
+    public bool DebugModifiersOn => _mods?.DebugOn ?? false;
+    public void ToggleDebugModifiers() => _mods?.ToggleDebug();
 
     private void BuildTerrain()
     {
