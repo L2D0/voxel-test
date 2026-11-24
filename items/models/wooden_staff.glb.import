@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bwvyg355qehyt"
-path="res://.godot/imported/wooden_staff.gltf-ae7ac8a5ef27dce169757bfb4d0514b8.scn"
+uid="uid://cs2hs6osbprfw"
+path="res://.godot/imported/wooden_staff.glb-0d886b4a5ccc62f2e70a039418cdf42e.scn"
 
 [deps]
 
-source_file="res://items/models/wooden_staff.gltf"
-dest_files=["res://.godot/imported/wooden_staff.gltf-ae7ac8a5ef27dce169757bfb4d0514b8.scn"]
+source_file="res://items/models/wooden_staff.glb"
+dest_files=["res://.godot/imported/wooden_staff.glb-0d886b4a5ccc62f2e70a039418cdf42e.scn"]
 
 [params]
 

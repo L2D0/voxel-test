@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://ckudr8chj1kgo"]
 
 [ext_resource type="Script" uid="uid://ng7um6pv7siq" path="res://player/PlayerController.cs" id="1_rkbax"]
+[ext_resource type="PackedScene" uid="uid://c8er8ofgcddeq" path="res://player/models/manny.glb" id="2_bjvpn"]
 [ext_resource type="Script" uid="uid://b0h4o0t807qr4" path="res://player/PlayerCamera.cs" id="2_g1dw6"]
 [ext_resource type="Script" uid="uid://cdvmtwhbu5alc" path="res://ui/HUD.cs" id="3_7pqkx"]
 [ext_resource type="Script" uid="uid://v0rtdhgt84yb" path="res://ui/SpellWheel.cs" id="3_boad6"]
@@ -75,14 +76,19 @@ shape = SubResource("CapsuleShape3D_g4v7s")
 [node name="Model" type="Node3D" parent="." unique_id=99472900]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Model" unique_id=1091058149]
+visible = false
 mesh = SubResource("CapsuleMesh_g4v7s")
 
 [node name="Nose" type="MeshInstance3D" parent="Model" unique_id=719386372]
 transform = Transform3D(0.2, 0, 0, 0, 0.2, 0, 0, 0, 0.3, 0, 0.5, -0.5)
+visible = false
 mesh = SubResource("BoxMesh_57qmd")
 
 [node name="CastPoint" type="Marker3D" parent="Model" unique_id=564637236]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, -0.8)
+
+[node name="blockbench_export2" parent="Model" unique_id=937587681 instance=ExtResource("2_bjvpn")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1932564801]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
