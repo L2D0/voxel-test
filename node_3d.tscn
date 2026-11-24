@@ -73,5 +73,5 @@ script = ExtResource("17_i0g27")
 [node name="InventoryWindow" type="CanvasLayer" parent="." unique_id=76413523]
 script = ExtResource("18_ealrb")
 
-[node name="Hotbar" type="Node" parent="." unique_id=2070548317]
+[node name="Hotbar" type="CanvasLayer" parent="." unique_id=517665030]
 script = ExtResource("19_ealrb")
