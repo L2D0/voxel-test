@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://dhirgks2421qd" path="res://ui/DebugPanel.cs" id="16_tcnuu"]
 [ext_resource type="Script" uid="uid://drah8bfova4nj" path="res://items/ItemDropManager.cs" id="17_i0g27"]
 [ext_resource type="Script" uid="uid://bscct2xht54h0" path="res://ui/InventoryWindow.cs" id="18_ealrb"]
+[ext_resource type="Script" uid="uid://c2711euio0jfy" path="res://ui/Hotbar.cs" id="19_ealrb"]
 
 [node name="Node3D" type="Node3D" unique_id=191619101]
 
@@ -71,3 +72,6 @@ script = ExtResource("17_i0g27")
 
 [node name="InventoryWindow" type="CanvasLayer" parent="." unique_id=76413523]
 script = ExtResource("18_ealrb")
+
+[node name="Hotbar" type="Node" parent="." unique_id=2070548317]
+script = ExtResource("19_ealrb")

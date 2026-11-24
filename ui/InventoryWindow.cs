@@ -5,16 +5,17 @@ using Godot;
 //   right:     stats, then the equipped spell's stats under a divider
 //   bottom:    the 9 x 3 grid
 // The armour, focus and offhand slots are placeholders until gear exists (6.5, 6.8, 6.11).
-// Moving items: click one to pick it up, click another slot to drop it there (swaps, or merges the same item).
+// Moving items: drag and drop (ItemSlot). Shift-drag takes half, Ctrl-drag takes one, dropping outside the
+// window throws it on the ground, dropping on the hotbar binds it. Sort merges stacks and orders by kind and name.
 public partial class InventoryWindow : CanvasLayer
 {
     private const float SlotSize = 56f;
 
     private PanelContainer _window;
-    private readonly Button[] _slots = new Button[Inventory.Size];
+    private readonly ItemSlot[] _slots = new ItemSlot[Inventory.Size];
+    private DropCatcher _catcher;
     private Label _stats, _spellStats;
     private Inventory _inventory;
-    private int _held = -1;
     private float _statsTimer;
 
     public override void _Ready()
@@ -23,6 +24,7 @@ public partial class InventoryWindow : CanvasLayer
         AddToGroup("inventory_window");
         Build();
         _window.Visible = false;
+        _catcher.Visible = false;
     }
 
     // ---------- Opening ----------
@@ -50,6 +52,7 @@ public partial class InventoryWindow : CanvasLayer
         if (_window.Visible) return;
         Bind();
         _window.Visible = true;
+        _catcher.Visible = true;
         GameState.MenuOpen = true;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         Refresh();
@@ -58,8 +61,8 @@ public partial class InventoryWindow : CanvasLayer
 
     private void Close()
     {
-        _held = -1;
         _window.Visible = false;
+        _catcher.Visible = false;
         GameState.MenuOpen = false;
         Input.MouseMode = Input.MouseModeEnum.Captured;
     }
@@ -92,6 +95,11 @@ public partial class InventoryWindow : CanvasLayer
 
     private void Build()
     {
+        // Behind the window, covering the screen: drops that miss the window land here
+        _catcher = new DropCatcher();
+        AddChild(_catcher);
+        _catcher.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+
         _window = new PanelContainer();
         AddChild(_window);
         _window.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
@@ -105,6 +113,12 @@ public partial class InventoryWindow : CanvasLayer
         // Title bar with the close button
         var bar = new HBoxContainer();
         bar.AddChild(new Label { Text = "Inventory", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        var hint = new Label { Text = "Drag to move · Shift: half · Ctrl: one · drag out to drop" };
+        hint.AddThemeFontSizeOverride("font_size", 11);
+        bar.AddChild(hint);
+        var sort = new Button { Text = "Sort" };
+        sort.Pressed += () => _inventory?.RequestSort();
+        bar.AddChild(sort);
         var close = new Button { Text = " X " };
         close.Pressed += Close;
         bar.AddChild(close);
@@ -153,11 +167,9 @@ public partial class InventoryWindow : CanvasLayer
         main.AddChild(grid);
         for (int i = 0; i < Inventory.Size; i++)
         {
-            int slot = i;
-            var button = new Button { CustomMinimumSize = new Vector2(SlotSize, SlotSize), ClipText = true };
-            button.Pressed += () => OnSlotPressed(slot);
-            grid.AddChild(button);
-            _slots[i] = button;
+            var slot = new ItemSlot { Kind = ItemSlot.SlotKind.Inventory, Index = i, CustomMinimumSize = new Vector2(SlotSize, SlotSize) };
+            grid.AddChild(slot);
+            _slots[i] = slot;
         }
     }
 
@@ -172,26 +184,7 @@ public partial class InventoryWindow : CanvasLayer
         if (_inventory == null || !IsInstanceValid(_inventory)) return;
 
         for (int i = 0; i < Inventory.Size; i++)
-        {
-            Button button = _slots[i];
-            ItemDefinition def = ItemDatabase.Get(_inventory.IdAt(i));
-            int count = _inventory.CountAt(i);
-
-            // Placeholder look: the item's tint and short name until icons are drawn
-            button.Icon = def?.Icon;
-            button.ExpandIcon = true;
-            button.Text = def == null ? "" : def.Icon != null ? (count > 1 ? count.ToString() : "") : Short(def.DisplayName, count);
-            button.TooltipText = def == null ? "" : $"{def.DisplayName}\n{def.Description}";
-            button.SelfModulate = def == null ? Colors.White : def.Tint;
-            button.Modulate = i == _held ? new Color(1f, 1f, 0.6f) : Colors.White;
-        }
-    }
-
-    private static string Short(string name, int count)
-    {
-        string word = name.Split(' ')[0];
-        if (word.Length > 6) word = word[..6];
-        return count > 1 ? $"{word}\n{count}" : word;
+            _slots[i].ShowItem(ItemDatabase.Get(_inventory.IdAt(i)), _inventory.CountAt(i));
     }
 
     private void RefreshStats()
@@ -220,24 +213,6 @@ public partial class InventoryWindow : CanvasLayer
             $"Cost      {caster.CostOf(spell):0}\n" +
             $"Recharge  {caster.Stat(spell, nameof(SpellDefinition.RechargeTime)):0.0} s\n" +
             $"Range     {(range > 0f ? $"{range:0} m" : "unlimited")}";
-    }
-
-    // ---------- Moving items ----------
-
-    private void OnSlotPressed(int slot)
-    {
-        if (_inventory == null) return;
-
-        if (_held < 0)
-        {
-            if (!_inventory.IsEmpty(slot)) _held = slot;   // pick it up
-        }
-        else
-        {
-            if (slot != _held) _inventory.RequestMove(_held, slot);   // put it down
-            _held = -1;
-        }
-        Refresh();
     }
 
     private PlayerController Me()

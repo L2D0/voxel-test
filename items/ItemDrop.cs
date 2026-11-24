@@ -5,7 +5,7 @@ using Godot;
 public partial class ItemDrop : Node3D
 {
     private const float PickupRadius = 1.4f;
-    private const float PickupDelay = 0.6f;   // so it can be seen landing before it's grabbed
+    public const float DefaultPickupDelay = 0.6f;   // so it can be seen landing before it's grabbed
     private const float Lifetime = 300f;      // gone after five minutes on the ground
     private const float CheckInterval = 0.1f;
 
@@ -13,12 +13,14 @@ public partial class ItemDrop : Node3D
     public int Count { get; private set; }
 
     private float _age, _checkTimer;
+    private float _pickupDelay = DefaultPickupDelay;   // longer for things a player threw away
     private Node3D _visual;
 
-    public void Setup(string itemId, int count)
+    public void Setup(string itemId, int count, float pickupDelay)
     {
         ItemId = itemId;
         Count = count;
+        _pickupDelay = pickupDelay;
     }
 
     public override void _Ready()
@@ -50,7 +52,7 @@ public partial class ItemDrop : Node3D
 
         if (!Multiplayer.IsServer()) return;
         if (_age > Lifetime) { QueueFree(); return; }
-        if (_age < PickupDelay) return;
+        if (_age < _pickupDelay) return;
 
         _checkTimer -= dt;
         if (_checkTimer > 0f) return;

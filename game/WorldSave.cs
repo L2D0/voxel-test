@@ -7,10 +7,11 @@ using System.Collections.Generic;
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 6;           // bump when the layout changes; old versions get read with their old layout
+    private const int Version = 7;           // bump when the layout changes; old versions get read with their old layout
                                              // 1: seed, rules, edits.  2: + players.  3: + structures.
                                              // 4: + structure ids, players' waystone lists.
-                                             // 5: + player velocity, enemies.  6: + player inventories
+                                             // 5: + player velocity, enemies.  6: + player inventories.
+                                             // 7: + hotbar binds
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -50,6 +51,7 @@ public class WorldSave
     {
         public string[] ItemIds = System.Array.Empty<string>();   // inventory, slot by slot ("" = empty)
         public int[] ItemCounts = System.Array.Empty<int>();
+        public string[] Hotbar = System.Array.Empty<string>();      // "item:<id>", "spell:<path>" or ""
         public Vector3 Position;
         public float Health;     // 0 = died before the save; comes back at spawn on full health
         public string[] Skills = System.Array.Empty<string>();
@@ -130,6 +132,12 @@ public class WorldSave
                         player.ItemIds[s] = file.GetPascalString();
                         player.ItemCounts[s] = (int)file.Get32();
                     }
+                }
+                if (version >= 7)
+                {
+                    int binds = (int)file.Get32();
+                    player.Hotbar = new string[binds];
+                    for (int b = 0; b < binds; b++) player.Hotbar[b] = file.GetPascalString();
                 }
                 save.Players[key] = player;
             }
@@ -221,6 +229,8 @@ public class WorldSave
                     file.StorePascalString(player.ItemIds[s] ?? "");
                     file.Store32((uint)(s < player.ItemCounts.Length ? player.ItemCounts[s] : 0));
                 }
+                file.Store32((uint)player.Hotbar.Length);
+                foreach (string bind in player.Hotbar) file.StorePascalString(bind ?? "");
             }
 
             file.Store32((uint)Structures.Count);

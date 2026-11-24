@@ -101,7 +101,7 @@ public partial class Session : Node
         bool alive = data.Health > 0f;
         if (alive) Health.Of(player)?.SetCurrent(data.Health);
         player.RestoreFromSave(alive, data.Position, data.Velocity, data.Skills);   // dead at save time: back at spawn, full health
-        Inventory.Of(player)?.Load(data.ItemIds, data.ItemCounts);   // the host holds the real inventory
+        Inventory.Of(player)?.Load(data.ItemIds, data.ItemCounts, data.Hotbar);   // the host holds the real inventory
     }
 
     private void CapturePlayer(long peer)
@@ -119,6 +119,7 @@ public partial class Session : Node
         if (Inventory.Of(player) is Inventory inventory)
         {
             save.ItemIds = inventory.SlotIds();
+            save.Hotbar = inventory.HotbarBinds();
             save.ItemCounts = inventory.SlotCounts();
         }
     }

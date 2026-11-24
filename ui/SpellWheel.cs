@@ -39,6 +39,15 @@ public partial class SpellWheel : Control
 
         if (!_open) return;
 
+        // Hovering a spell and pressing a number key binds it to that hotbar slot
+        if (e is InputEventKey { Pressed: true, Echo: false } key && _hovered >= 0
+            && Hotbar.SlotForKey(key.PhysicalKeycode) is int slot)
+        {
+            Hotbar.Of(this)?.BindSpell(slot, Caster.Spells[_hovered]);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         if (e.IsActionReleased("spell_wheel"))
         {
             Close(confirm: true);

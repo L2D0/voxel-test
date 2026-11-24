@@ -23,7 +23,7 @@ public partial class ItemDropManager : Node
     }
 
     // Host only. Lands it on the ground below the point, with a little scatter so piles spread out.
-    public void Drop(string itemId, int count, Vector3 at)
+    public void Drop(string itemId, int count, Vector3 at, float pickupDelay = ItemDrop.DefaultPickupDelay)
     {
         if (!Multiplayer.IsServer() || count <= 0 || ItemDatabase.Get(itemId) == null) return;
 
@@ -33,14 +33,14 @@ public partial class ItemDropManager : Node
         var hit = GetViewport().World3D.DirectSpaceState.IntersectRay(ray);
         if (hit.Count > 0) at = (Vector3)hit["position"];
 
-        _spawner.Spawn(new Godot.Collections.Array { itemId, count, at, $"Drop_{_nextId++}" });
+        _spawner.Spawn(new Godot.Collections.Array { itemId, count, at, $"Drop_{_nextId++}", pickupDelay });
     }
 
     private Node CreateDrop(Variant data)
     {
         var args = data.AsGodotArray();
         var drop = new ItemDrop { Name = args[3].AsString(), Position = args[2].AsVector3() };
-        drop.Setup(args[0].AsString(), args[1].AsInt32());
+        drop.Setup(args[0].AsString(), args[1].AsInt32(), args[4].AsSingle());
         return drop;
     }
 }

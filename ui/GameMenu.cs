@@ -24,7 +24,7 @@ public partial class GameMenu : CanvasLayer
             Close();
             (GetTree().GetFirstNodeInGroup("inventory_window") as InventoryWindow)?.Open();
         };
-        GetNode<Button>("%InventoryButton").Pressed += () => ShowPage(Page.Wip);
+        GetNode<Button>("%PhysicalButton").Pressed += () => ShowPage(Page.Wip);
 
         ShowPage(Page.Closed);
     }
