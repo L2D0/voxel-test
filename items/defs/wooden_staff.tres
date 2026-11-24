@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="ItemDefinition" format=3]
 
 [ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+[ext_resource type="PackedScene" path="res://items/models/wooden_staff.gltf" id="2_model"]
 
 [resource]
 script = ExtResource("1_item")
@@ -10,5 +11,6 @@ Description = "A length of seasoned branch, worn smooth where the hands go. Hold
 Category = 2
 MaxStack = 1
 Tint = Color(0.62, 0.45, 0.28, 1)
+Model = ExtResource("2_model")
 EquipsTo = 1
 SpellSlots = 2

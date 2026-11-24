@@ -17,6 +17,7 @@ public partial class ItemDefinition : Resource
     [Export] public int MaxStack = 64;
     [Export] public Texture2D Icon;                      // hand-drawn later; until then the tint stands in
     [Export] public Color Tint = new(0.8f, 0.8f, 0.8f);
+    [Export] public PackedScene Model;                   // held and dropped look; origin at the grip
 
     [ExportGroup("Equipment")]
     [Export] public EquipSlot EquipsTo = EquipSlot.None;

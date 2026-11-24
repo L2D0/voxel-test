@@ -11,6 +11,8 @@ public partial class SpellCaster : Node
     // Host: every spell this player has learned, and what's socketed in each focus they've used
     private readonly List<string> _known = new();
     private readonly Dictionary<string, string[]> _sockets = new();
+    private HeldItem _held;          // the focus model in the right hand
+    private string _focusId = "";
 
     public int ActiveIndex { get; private set; }
     public SpellDefinition ActiveSpell => Spells.Count > 0 ? Spells[ActiveIndex] : null;
@@ -91,6 +93,9 @@ public partial class SpellCaster : Node
             Visible = false,
         };
         AddChild(_rangeBubble);
+
+        _held = new HeldItem { Name = "Hand", Position = HeldItem.HandOffset };
+        _player.GetNode<Node3D>("Model").AddChild(_held);
     }
 
     private bool IsLocal => _player.IsMultiplayerAuthority();
@@ -264,7 +269,7 @@ public partial class SpellCaster : Node
     public void SetFocus(string focusId)
     {
         if (!Multiplayer.IsServer()) return;
-        Rpc(MethodName.ReceiveLoadout, LoadoutFor(focusId));
+        Rpc(MethodName.ReceiveLoadout, LoadoutFor(focusId), focusId ?? "");
     }
 
     // Host: a focus's spells. A focus nobody has socketed yet gets the first spells you know, in order,
@@ -288,7 +293,7 @@ public partial class SpellCaster : Node
 
     // Every machine: swap the loadout. Anything mid-cast is dropped, since spell indices change.
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReceiveLoadout(string[] paths)
+    private void ReceiveLoadout(string[] paths, string focusId)
     {
         if (Multiplayer.GetRemoteSenderId() != 1 && Multiplayer.GetRemoteSenderId() != 0) return;   // host only (0 = called locally)
 
@@ -306,6 +311,8 @@ public partial class SpellCaster : Node
             if (ResourceLoader.Exists(path) && GD.Load(path) is SpellDefinition spell) spells.Add(spell);
         Spells = spells;
         ActiveIndex = 0;
+        _focusId = focusId ?? "";
+        _held?.Hold(_focusId);
 
         _charges = new float[Spells.Count];
         for (int i = 0; i < Spells.Count; i++) _charges[i] = MaxChargesOf(i);
@@ -316,7 +323,7 @@ public partial class SpellCaster : Node
     {
         var paths = new string[Spells.Count];
         for (int i = 0; i < Spells.Count; i++) paths[i] = Spells[i]?.ResourcePath ?? "";
-        RpcId(peer, MethodName.ReceiveLoadout, paths);
+        RpcId(peer, MethodName.ReceiveLoadout, paths, _focusId);
     }
 
     // ---------- Known spells (host; saved with the player) ----------
