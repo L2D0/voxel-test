@@ -7,11 +7,11 @@ using System.Collections.Generic;
 public class WorldSave
 {
     private const uint Magic = 0x52575053;   // "SPWR" in the first four bytes, so we never read some other file
-    private const int Version = 7;           // bump when the layout changes; old versions get read with their old layout
+    private const int Version = 8;           // bump when the layout changes; old versions get read with their old layout
                                              // 1: seed, rules, edits.  2: + players.  3: + structures.
                                              // 4: + structure ids, players' waystone lists.
                                              // 5: + player velocity, enemies.  6: + player inventories.
-                                             // 7: + hotbar binds
+                                             // 7: + hotbar binds.  8: + equipment, known spells, focus sockets
 
     public static WorldSave Current;         // the world being hosted right now, if any
 
@@ -52,6 +52,9 @@ public class WorldSave
         public string[] ItemIds = System.Array.Empty<string>();   // inventory, slot by slot ("" = empty)
         public int[] ItemCounts = System.Array.Empty<int>();
         public string[] Hotbar = System.Array.Empty<string>();      // "item:<id>", "spell:<path>" or ""
+        public string[] Equipped = System.Array.Empty<string>();    // Focus, Offhand, Head, Chest, Hands ("" = empty)
+        public string[] KnownSpells = System.Array.Empty<string>(); // every spell learned, by resource path
+        public Dictionary<string, string[]> Sockets = new();        // focus item id -> spells socketed in it
         public Vector3 Position;
         public float Health;     // 0 = died before the save; comes back at spawn on full health
         public string[] Skills = System.Array.Empty<string>();
@@ -138,6 +141,13 @@ public class WorldSave
                     int binds = (int)file.Get32();
                     player.Hotbar = new string[binds];
                     for (int b = 0; b < binds; b++) player.Hotbar[b] = file.GetPascalString();
+                }
+                if (version >= 8)
+                {
+                    player.Equipped = ReadStrings(file);
+                    player.KnownSpells = ReadStrings(file);
+                    int foci = (int)file.Get32();
+                    for (int f = 0; f < foci; f++) player.Sockets[file.GetPascalString()] = ReadStrings(file);
                 }
                 save.Players[key] = player;
             }
@@ -231,6 +241,14 @@ public class WorldSave
                 }
                 file.Store32((uint)player.Hotbar.Length);
                 foreach (string bind in player.Hotbar) file.StorePascalString(bind ?? "");
+                WriteStrings(file, player.Equipped);
+                WriteStrings(file, player.KnownSpells);
+                file.Store32((uint)player.Sockets.Count);
+                foreach (var (focus, spells) in player.Sockets)
+                {
+                    file.StorePascalString(focus);
+                    WriteStrings(file, spells);
+                }
             }
 
             file.Store32((uint)Structures.Count);
@@ -266,6 +284,20 @@ public class WorldSave
         Error err = DirAccess.RenameAbsolute(temp, FileOf(Name));
         if (err != Error.Ok) GD.PushError($"Couldn't finish saving world '{Name}': {err}");
         IsNew = false;
+    }
+
+    private static string[] ReadStrings(FileAccess file)
+    {
+        var list = new string[(int)file.Get32()];
+        for (int i = 0; i < list.Length; i++) list[i] = file.GetPascalString();
+        return list;
+    }
+
+    private static void WriteStrings(FileAccess file, string[] list)
+    {
+        list ??= System.Array.Empty<string>();
+        file.Store32((uint)list.Length);
+        foreach (string s in list) file.StorePascalString(s ?? "");
     }
 
     // Throws the whole world away: its file, any half-finished save, and its folder

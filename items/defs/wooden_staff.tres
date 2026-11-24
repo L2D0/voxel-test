@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Id = "wooden_staff"
+DisplayName = "Wooden Staff"
+Description = "A length of seasoned branch, worn smooth where the hands go. Holds two spells."
+Category = 2
+MaxStack = 1
+Tint = Color(0.62, 0.45, 0.28, 1)
+EquipsTo = 1
+SpellSlots = 2

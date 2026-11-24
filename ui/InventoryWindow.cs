@@ -4,7 +4,7 @@ using Godot;
 //   top left:  player view, with the armour slots beside it; focus and offhand below
 //   right:     stats, then the equipped spell's stats under a divider
 //   bottom:    the 9 x 3 grid
-// The armour, focus and offhand slots are placeholders until gear exists (6.5, 6.8, 6.11).
+// The focus slot decides your spells. Armour and offhand slots take gear once it exists (6.8, 6.11).
 // Moving items: drag and drop (ItemSlot). Shift-drag takes half, Ctrl-drag takes one, dropping outside the
 // window throws it on the ground, dropping on the hotbar binds it. Sort merges stacks and orders by kind and name.
 public partial class InventoryWindow : CanvasLayer
@@ -13,6 +13,7 @@ public partial class InventoryWindow : CanvasLayer
 
     private PanelContainer _window;
     private readonly ItemSlot[] _slots = new ItemSlot[Inventory.Size];
+    private readonly ItemSlot[] _gear = new ItemSlot[Inventory.EquipSize];
     private DropCatcher _catcher;
     private Label _stats, _spellStats;
     private Inventory _inventory;
@@ -139,14 +140,14 @@ public partial class InventoryWindow : CanvasLayer
         playerRow.AddChild(view);
 
         var armour = new VBoxContainer();
-        armour.AddChild(Placeholder("Head"));
-        armour.AddChild(Placeholder("Chest"));
-        armour.AddChild(Placeholder("Hands"));
+        armour.AddChild(Gear(EquipSlot.Head));
+        armour.AddChild(Gear(EquipSlot.Chest));
+        armour.AddChild(Gear(EquipSlot.Hands));
         playerRow.AddChild(armour);
 
         var hands = new HBoxContainer();
-        hands.AddChild(Placeholder("Focus"));
-        hands.AddChild(Placeholder("Offhand"));
+        hands.AddChild(Gear(EquipSlot.Focus));
+        hands.AddChild(Gear(EquipSlot.Offhand));
         left.AddChild(hands);
 
         // Right: stats, a divider, then the equipped spell
@@ -173,9 +174,13 @@ public partial class InventoryWindow : CanvasLayer
         }
     }
 
-    // A slot that will hold gear later: visible so the layout is right, but does nothing yet
-    private static Control Placeholder(string name) =>
-        new Button { Text = name, Disabled = true, CustomMinimumSize = new Vector2(SlotSize + 20f, SlotSize) };
+    private ItemSlot Gear(EquipSlot kind)
+    {
+        int index = Inventory.IndexOf(kind);
+        var slot = new ItemSlot { Kind = ItemSlot.SlotKind.Equipment, Index = index, CustomMinimumSize = new Vector2(SlotSize + 20f, SlotSize) };
+        _gear[index] = slot;
+        return slot;
+    }
 
     // ---------- Filling it in ----------
 
@@ -185,6 +190,14 @@ public partial class InventoryWindow : CanvasLayer
 
         for (int i = 0; i < Inventory.Size; i++)
             _slots[i].ShowItem(ItemDatabase.Get(_inventory.IdAt(i)), _inventory.CountAt(i));
+
+        for (int i = 0; i < Inventory.EquipSize; i++)
+        {
+            ItemDefinition def = ItemDatabase.Get(_inventory.EquippedAt(i));
+            _gear[i].ShowItem(def, 1);
+            if (def == null) _gear[i].Text = Inventory.SlotOf(i).ToString();   // empty: say what goes here
+        }
+        RefreshStats();
     }
 
     private void RefreshStats()
@@ -201,14 +214,18 @@ public partial class InventoryWindow : CanvasLayer
             $"Stamina  {stamina?.Current ?? 0:0} / {stamina?.Max ?? 0:0}";
 
         SpellCaster caster = me.GetNodeOrNull<SpellCaster>("Spellcaster");
+        ItemDefinition focus = ItemDatabase.Get(Inventory.Of(me)?.FocusId);
+        string focusLine = focus == null ? "No focus equipped" : $"{focus.DisplayName}: {caster?.Spells.Count ?? 0} / {focus.SpellSlots} spells";
+
         SpellDefinition spell = caster?.ActiveSpell;
         if (spell == null)
         {
-            _spellStats.Text = "No spell equipped";
+            _spellStats.Text = focusLine;
             return;
         }
         float range = caster.Stat(spell, nameof(SpellDefinition.Range));
         _spellStats.Text =
+            focusLine + "\n\n" +
             $"{spell.SpellName}  ({spell.Element})\n" +
             $"Cost      {caster.CostOf(spell):0}\n" +
             $"Recharge  {caster.Stat(spell, nameof(SpellDefinition.RechargeTime)):0.0} s\n" +

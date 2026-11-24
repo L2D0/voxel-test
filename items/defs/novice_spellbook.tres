@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Id = "novice_spellbook"
+DisplayName = "Novice Spellbook"
+Description = "Thin, dog-eared, and mostly blank. Holds three spells."
+Category = 2
+MaxStack = 1
+Tint = Color(0.55, 0.3, 0.3, 1)
+EquipsTo = 1
+SpellSlots = 3

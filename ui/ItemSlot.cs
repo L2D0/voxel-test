@@ -1,18 +1,19 @@
 using Godot;
 
-// One slot you can drag things in and out of: an inventory slot or a hotbar slot.
+// One slot you can drag things in and out of: an inventory, equipment or hotbar slot.
 //   Inventory slot: drag to move a stack. Shift-drag takes half, Ctrl-drag takes one.
 //                   Drop onto another slot to move or merge, onto the hotbar to bind it, outside the window to throw it.
 //   Hotbar slot:    holds a bind, not an item. Drag between hotbar slots to swap, drag off to clear,
 //                   right-click to clear.
+//   Equipment slot: takes only items that equip there. Drag back into the bag to unequip, out of the window to drop.
 public partial class ItemSlot : Button
 {
-    public enum SlotKind { Inventory, Hotbar }
+    public enum SlotKind { Inventory, Hotbar, Equipment }
 
     public SlotKind Kind;
     public int Index;
 
-    private const int FromInventory = 0, FromHotbar = 1;
+    private const int FromInventory = 0, FromHotbar = 1, FromEquipment = 2;
 
     public override void _Ready()
     {
@@ -67,6 +68,14 @@ public partial class ItemSlot : Button
             return new Godot.Collections.Dictionary { { "from", FromInventory }, { "slot", Index }, { "amount", amount } };
         }
 
+        if (Kind == SlotKind.Equipment)
+        {
+            if (inventory.EquippedAt(Index) is not string id) return default;
+            ItemDefinition def = ItemDatabase.Get(id);
+            SetDragPreview(Preview(Short(def?.DisplayName, 1), def?.Tint ?? Colors.White));
+            return new Godot.Collections.Dictionary { { "from", FromEquipment }, { "slot", Index }, { "amount", 1 } };
+        }
+
         if (inventory.BindAt(Index) == "") return default;
         SetDragPreview(Preview(Text, SelfModulate));
         return new Godot.Collections.Dictionary { { "from", FromHotbar }, { "slot", Index } };
@@ -83,18 +92,31 @@ public partial class ItemSlot : Button
 
     public override bool _CanDropData(Vector2 atPosition, Variant data)
     {
-        if (!TryRead(data, out int from, out _, out _)) return false;
-        return Kind == SlotKind.Hotbar || from == FromInventory;   // binds can't go into the bag
+        if (!TryRead(data, out int from, out int slot, out _)) return false;
+        return Kind switch
+        {
+            SlotKind.Inventory => from != FromHotbar,                            // binds can't go into the bag
+            SlotKind.Hotbar => from != FromEquipment,
+            _ => from == FromInventory && Fits(LocalInventory(this)?.IdAt(slot)),  // only gear that goes here
+        };
     }
+
+    private bool Fits(string id) =>
+        ItemDatabase.Get(id) is ItemDefinition def && Inventory.IndexOf(def.EquipsTo) == Index;
 
     public override void _DropData(Vector2 atPosition, Variant data)
     {
         if (!TryRead(data, out int from, out int slot, out int amount)) return;
         if (LocalInventory(this) is not Inventory inventory) return;
 
-        if (Kind == SlotKind.Inventory)
+        if (Kind == SlotKind.Equipment)
         {
-            inventory.RequestMove(slot, Index, amount);
+            inventory.RequestEquip(slot, Index);
+        }
+        else if (Kind == SlotKind.Inventory)
+        {
+            if (from == FromEquipment) inventory.RequestUnequip(slot, Index);
+            else inventory.RequestMove(slot, Index, amount);
         }
         else if (from == FromInventory)
         {
@@ -130,6 +152,7 @@ public partial class ItemSlot : Button
     }
 
     public static bool IsFromInventory(int from) => from == FromInventory;
+    public static bool IsFromEquipment(int from) => from == FromEquipment;
 
     // This machine's own player's inventory
     public static Inventory LocalInventory(Node anyNode)

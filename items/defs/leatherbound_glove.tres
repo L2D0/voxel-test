@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemDefinition" format=3]
+
+[ext_resource type="Script" path="res://items/ItemDefinition.cs" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+Id = "leatherbound_glove"
+DisplayName = "Leatherbound Glove"
+Description = "Stitched leather with a bare patch on the palm for a sigil. Holds one spell until sigils are understood."
+Category = 2
+MaxStack = 1
+Tint = Color(0.45, 0.32, 0.22, 1)
+EquipsTo = 1
+SpellSlots = 1

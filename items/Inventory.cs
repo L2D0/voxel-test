@@ -2,7 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// A player's inventory: 27 slots (9 x 3) plus 10 hotbar binds. The host's copy is the real one, so items
+// A player's inventory: 27 slots (9 x 3), 5 equipment slots, plus 10 hotbar binds. The host's copy is the real one, so items
 // can't be duplicated by a client; every change happens on the host, which then sends the owner a fresh copy.
 // Lives on the player as a child node named "Inventory".
 //
@@ -12,6 +12,9 @@ public partial class Inventory : Node
 {
     public const int Columns = 9, Rows = 3, Size = Columns * Rows;
     public const int HotbarSize = 10;
+    public const int EquipSize = 5;             // Focus, Offhand, Head, Chest, Hands (EquipSlot minus None)
+
+    [Export] public string StarterFocus = "wooden_staff";   // what a brand new character has in hand
     private const float ThrowDistance = 1.6f;   // dropped items land this far in front of you
     private const float ThrowPickupDelay = 2f;  // long enough to walk away from what you dropped
 
@@ -20,6 +23,7 @@ public partial class Inventory : Node
     private readonly string[] _ids = new string[Size];
     private readonly int[] _counts = new int[Size];
     private readonly string[] _hotbar = new string[HotbarSize];
+    private readonly string[] _equipped = new string[EquipSize];
 
     public static Inventory Of(Node player) => player?.GetNodeOrNull<Inventory>("Inventory");
 
@@ -27,6 +31,11 @@ public partial class Inventory : Node
     public int CountAt(int slot) => IsEmpty(slot) ? 0 : _counts[slot];
     public bool IsEmpty(int slot) => string.IsNullOrEmpty(_ids[slot]) || _counts[slot] <= 0;
     public string BindAt(int slot) => slot >= 0 && slot < HotbarSize ? _hotbar[slot] ?? "" : "";
+    public string EquippedAt(int equip) => equip >= 0 && equip < EquipSize ? _equipped[equip] : null;
+    public string FocusId => _equipped[0];
+
+    public static int IndexOf(EquipSlot slot) => (int)slot - 1;
+    public static EquipSlot SlotOf(int equip) => (EquipSlot)(equip + 1);
 
     public int CountOf(string id)
     {
@@ -41,6 +50,14 @@ public partial class Inventory : Node
     public int Add(string id, int count)
     {
         if (!Multiplayer.IsServer() || count <= 0 || ItemDatabase.Get(id) == null) return count;
+        count = Put(id, count);
+        Sync();
+        return count;
+    }
+
+    // Add without telling anyone yet; the caller syncs once it's done
+    private int Put(string id, int count)
+    {
         int max = ItemDatabase.MaxStackOf(id);
 
         for (int i = 0; i < Size && count > 0; i++)
@@ -58,7 +75,6 @@ public partial class Inventory : Node
             _counts[i] = moved;
             count -= moved;
         }
-        Sync();
         return count;
     }
 
@@ -111,17 +127,102 @@ public partial class Inventory : Node
     // Out of the inventory and onto the ground in front of you
     private void Drop(int slot, int amount)
     {
-        if (!Valid(slot) || IsEmpty(slot) || GetParent() is not PlayerController player) return;
+        if (!Valid(slot) || IsEmpty(slot)) return;
         amount = Math.Clamp(amount, 1, _counts[slot]);
         string id = _ids[slot];
 
         _counts[slot] -= amount;
         if (_counts[slot] <= 0) Clear(slot);
         Sync();
+        DropAt(id, amount);
+    }
 
+    // Onto the ground in front of the player
+    private void DropAt(string id, int amount)
+    {
+        if (GetParent() is not PlayerController player) return;
         Vector3 forward = -player.GetNode<Node3D>("CameraPivot").GlobalBasis.Z;
         forward = new Vector3(forward.X, 0f, forward.Z).Normalized();
         ItemDropManager.Of(this)?.Drop(id, amount, player.GlobalPosition + forward * ThrowDistance, ThrowPickupDelay);
+    }
+
+    // ---------- Host: equipment ----------
+
+    // A brand new character: starter focus in hand
+    public void StartFresh()
+    {
+        if (!Multiplayer.IsServer()) return;
+        GiveStarter();
+        Sync();
+        EquipmentChanged(IndexOf(EquipSlot.Focus));
+    }
+
+    private void GiveStarter()
+    {
+        int focus = IndexOf(EquipSlot.Focus);
+        if (_equipped[focus] == null && ItemDatabase.Get(StarterFocus) != null) _equipped[focus] = StarterFocus;
+    }
+
+    // From a bag slot into an equipment slot. Whatever was equipped there goes back into the bag.
+    private void Equip(int slot, int equip)
+    {
+        if (!Valid(slot) || IsEmpty(slot) || equip < 0 || equip >= EquipSize) return;
+        string id = _ids[slot];
+        if (ItemDatabase.Get(id) is not ItemDefinition def || IndexOf(def.EquipsTo) != equip) return;
+
+        string old = _equipped[equip];
+        _equipped[equip] = id;
+        _counts[slot] -= 1;
+        if (_counts[slot] <= 0) Clear(slot);
+
+        if (old != null)
+        {
+            if (IsEmpty(slot)) { _ids[slot] = old; _counts[slot] = 1; }        // straight into the slot it came from
+            else if (Put(old, 1) > 0) DropAt(old, 1);                          // bag full: onto the ground
+        }
+        Sync();
+        EquipmentChanged(equip);
+    }
+
+    // From an equipment slot into a bag slot: an empty one, a stack of the same, or a swap with something that fits
+    private void Unequip(int equip, int slot)
+    {
+        if (!Valid(slot) || equip < 0 || equip >= EquipSize || _equipped[equip] is not string id) return;
+
+        if (IsEmpty(slot))
+        {
+            _ids[slot] = id;
+            _counts[slot] = 1;
+            _equipped[equip] = null;
+        }
+        else if (_ids[slot] == id && _counts[slot] < ItemDatabase.MaxStackOf(id))
+        {
+            _counts[slot]++;
+            _equipped[equip] = null;
+        }
+        else if (_counts[slot] == 1 && ItemDatabase.Get(_ids[slot]) is ItemDefinition other && IndexOf(other.EquipsTo) == equip)
+        {
+            (_equipped[equip], _ids[slot]) = (_ids[slot], id);
+        }
+        else return;
+
+        Sync();
+        EquipmentChanged(equip);
+    }
+
+    private void DropEquipped(int equip)
+    {
+        if (equip < 0 || equip >= EquipSize || _equipped[equip] is not string id) return;
+        _equipped[equip] = null;
+        Sync();
+        EquipmentChanged(equip);
+        DropAt(id, 1);
+    }
+
+    // The focus decides which spells can be cast
+    private void EquipmentChanged(int equip)
+    {
+        if (equip == IndexOf(EquipSlot.Focus)) GetParent()?.GetNodeOrNull<SpellCaster>("Spellcaster")?.SetFocus(FocusId);
     }
 
     // Merges partial stacks, then orders by category and name
@@ -180,6 +281,42 @@ public partial class Inventory : Node
         else RpcId(1, MethodName.ReceiveDrop, slot, amount);
     }
 
+    public void RequestEquip(int slot, int equip)
+    {
+        if (Multiplayer.IsServer()) Equip(slot, equip);
+        else RpcId(1, MethodName.ReceiveEquip, slot, equip);
+    }
+
+    public void RequestUnequip(int equip, int slot)
+    {
+        if (Multiplayer.IsServer()) Unequip(equip, slot);
+        else RpcId(1, MethodName.ReceiveUnequip, equip, slot);
+    }
+
+    public void RequestDropEquipped(int equip)
+    {
+        if (Multiplayer.IsServer()) DropEquipped(equip);
+        else RpcId(1, MethodName.ReceiveDropEquipped, equip);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveEquip(int slot, int equip)
+    {
+        if (FromOwner()) Equip(slot, equip);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveUnequip(int equip, int slot)
+    {
+        if (FromOwner()) Unequip(equip, slot);
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveDropEquipped(int equip)
+    {
+        if (FromOwner()) DropEquipped(equip);
+    }
+
     public void RequestSort()
     {
         if (Multiplayer.IsServer()) Sort();
@@ -221,7 +358,7 @@ public partial class Inventory : Node
 
     private void GiveAll()
     {
-        foreach (ItemDefinition def in ItemDatabase.All) Add(def.Id, 5);
+        foreach (ItemDefinition def in ItemDatabase.All) Add(def.Id, Math.Min(5, def.MaxStack));
     }
 
     // ---------- Hotbar binds (owner changes, host keeps) ----------
@@ -263,11 +400,12 @@ public partial class Inventory : Node
     {
         Changed?.Invoke();   // the host's own window, if it's the host's inventory
         long owner = GetMultiplayerAuthority();
-        if (owner != Multiplayer.GetUniqueId()) RpcId(owner, MethodName.ReceiveSlots, SlotIds(), (int[])_counts.Clone());
+        if (owner != Multiplayer.GetUniqueId())
+            RpcId(owner, MethodName.ReceiveSlots, SlotIds(), (int[])_counts.Clone(), EquippedIds());
     }
 
     [Rpc(MultiplayerApi.RpcMode.AnyPeer, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
-    private void ReceiveSlots(string[] ids, int[] counts)
+    private void ReceiveSlots(string[] ids, int[] counts, string[] equipped)
     {
         if (Multiplayer.GetRemoteSenderId() != 1) return;   // only the host's copy is real
         for (int i = 0; i < Size; i++)
@@ -275,6 +413,7 @@ public partial class Inventory : Node
             _ids[i] = i < ids.Length && ids[i] != "" ? ids[i] : null;
             _counts[i] = i < counts.Length ? counts[i] : 0;
         }
+        for (int i = 0; i < EquipSize; i++) _equipped[i] = i < equipped.Length && equipped[i] != "" ? equipped[i] : null;
         Changed?.Invoke();
     }
 
@@ -289,7 +428,14 @@ public partial class Inventory : Node
 
     public int[] SlotCounts() => (int[])_counts.Clone();
 
-    public void Load(string[] ids, int[] counts, string[] binds)
+    public string[] EquippedIds()
+    {
+        var ids = new string[EquipSize];
+        for (int i = 0; i < EquipSize; i++) ids[i] = _equipped[i] ?? "";
+        return ids;
+    }
+
+    public void Load(string[] ids, int[] counts, string[] binds, string[] equipped)
     {
         if (!Multiplayer.IsServer()) return;
         for (int i = 0; i < Size; i++)
@@ -301,7 +447,14 @@ public partial class Inventory : Node
             _counts[i] = known ? count : 0;
         }
         for (int i = 0; i < HotbarSize; i++) _hotbar[i] = binds != null && i < binds.Length ? binds[i] : "";
+        for (int i = 0; i < EquipSize; i++)
+        {
+            string id = equipped != null && i < equipped.Length ? equipped[i] : "";
+            _equipped[i] = id != "" && ItemDatabase.Get(id) != null ? id : null;
+        }
+        if (equipped == null || equipped.Length == 0) GiveStarter();   // saved before equipment existed
         Sync();
+        EquipmentChanged(IndexOf(EquipSlot.Focus));   // the saved focus decides the loadout
 
         long owner = GetMultiplayerAuthority();
         if (owner != Multiplayer.GetUniqueId()) RpcId(owner, MethodName.ReceiveBinds, HotbarBinds());

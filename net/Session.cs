@@ -94,14 +94,29 @@ public partial class Session : Node
         else RpcId(peer, MethodName.ReceiveKey, key);   // so the player knows which waystones are theirs
 
         SendWaystones(peer);
+        SendLoadouts(peer);
 
-        if (WorldSave.Current == null || !WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave data)) return;
         if (Players.GetNodeOrNull<PlayerController>(peer.ToString()) is not PlayerController player) return;
+        if (WorldSave.Current == null || !WorldSave.Current.Players.TryGetValue(key, out WorldSave.PlayerSave data))
+        {
+            Inventory.Of(player)?.StartFresh();   // new character
+            return;
+        }
 
         bool alive = data.Health > 0f;
         if (alive) Health.Of(player)?.SetCurrent(data.Health);
         player.RestoreFromSave(alive, data.Position, data.Velocity, data.Skills);   // dead at save time: back at spawn, full health
-        Inventory.Of(player)?.Load(data.ItemIds, data.ItemCounts, data.Hotbar);   // the host holds the real inventory
+        player.GetNodeOrNull<SpellCaster>("Spellcaster")?.LoadSpells(data.KnownSpells, data.Sockets);   // before the focus goes on
+        Inventory.Of(player)?.Load(data.ItemIds, data.ItemCounts, data.Hotbar, data.Equipped);   // the host holds the real inventory
+    }
+
+    // A player who just joined hasn't heard which spells everyone else's focus holds
+    private void SendLoadouts(long peer)
+    {
+        if (peer == 1) return;
+        foreach (Node node in Players.GetChildren())
+            if (node.Name != peer.ToString() && node.GetNodeOrNull<SpellCaster>("Spellcaster") is SpellCaster caster)
+                caster.SendLoadoutTo(peer);
     }
 
     private void CapturePlayer(long peer)
@@ -121,6 +136,12 @@ public partial class Session : Node
             save.ItemIds = inventory.SlotIds();
             save.Hotbar = inventory.HotbarBinds();
             save.ItemCounts = inventory.SlotCounts();
+            save.Equipped = inventory.EquippedIds();
+        }
+        if (player.GetNodeOrNull<SpellCaster>("Spellcaster") is SpellCaster caster)
+        {
+            save.KnownSpells = caster.KnownSpells();
+            save.Sockets = caster.SocketsSnapshot();
         }
     }
 

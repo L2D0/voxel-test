@@ -1,9 +1,16 @@
 using Godot;
 using System.Collections.Generic;
 
+// Casts the player's spells. Spells is the current loadout: the spells socketed in the equipped focus.
+// No focus, no spells. The host decides the loadout and tells every machine, because casts are replicated by
+// their index in this list. The scene's Spells list is only the starting set of known spells.
 public partial class SpellCaster : Node
 {
     [Export] public Godot.Collections.Array<SpellDefinition> Spells = new();
+
+    // Host: every spell this player has learned, and what's socketed in each focus they've used
+    private readonly List<string> _known = new();
+    private readonly Dictionary<string, string[]> _sockets = new();
 
     public int ActiveIndex { get; private set; }
     public SpellDefinition ActiveSpell => Spells.Count > 0 ? Spells[ActiveIndex] : null;
@@ -65,9 +72,11 @@ public partial class SpellCaster : Node
         _mana = _player.GetNodeOrNull<Mana>("Mana");
         _health = Health.Of(_player);
 
-        _charges = new float[Spells.Count];
-        for (int i = 0; i < Spells.Count; i++)
-            _charges[i] = MaxChargesOf(i);
+        // The scene's list is what you start out knowing; nothing is castable until a focus is equipped
+        foreach (SpellDefinition spell in Spells)
+            if (spell != null && !string.IsNullOrEmpty(spell.ResourcePath)) _known.Add(spell.ResourcePath);
+        Spells = new Godot.Collections.Array<SpellDefinition>();
+        _charges = System.Array.Empty<float>();
 
         _rangeBubble = new MeshInstance3D
         {
@@ -247,6 +256,91 @@ public partial class SpellCaster : Node
     {
         _points.Clear();
         _pickTargets.Clear();
+    }
+
+    // ---------- Foci and the loadout ----------
+
+    // Host: the equipped focus changed (or a save loaded). Work out its spells and tell everyone.
+    public void SetFocus(string focusId)
+    {
+        if (!Multiplayer.IsServer()) return;
+        Rpc(MethodName.ReceiveLoadout, LoadoutFor(focusId));
+    }
+
+    // Host: a focus's spells. A focus nobody has socketed yet gets the first spells you know, in order,
+    // until the attunement table exists to choose them.
+    private string[] LoadoutFor(string focusId)
+    {
+        if (ItemDatabase.Get(focusId) is not ItemDefinition focus || focus.SpellSlots <= 0) return System.Array.Empty<string>();
+
+        if (!_sockets.TryGetValue(focusId, out string[] socketed))
+        {
+            socketed = new string[focus.SpellSlots];
+            for (int i = 0; i < socketed.Length; i++) socketed[i] = i < _known.Count ? _known[i] : "";
+            _sockets[focusId] = socketed;
+        }
+
+        var spells = new List<string>();
+        for (int i = 0; i < Mathf.Min(socketed.Length, focus.SpellSlots); i++)
+            if (!string.IsNullOrEmpty(socketed[i]) && _known.Contains(socketed[i])) spells.Add(socketed[i]);
+        return spells.ToArray();
+    }
+
+    // Every machine: swap the loadout. Anything mid-cast is dropped, since spell indices change.
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = true, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveLoadout(string[] paths)
+    {
+        if (Multiplayer.GetRemoteSenderId() != 1 && Multiplayer.GetRemoteSenderId() != 0) return;   // host only (0 = called locally)
+
+        foreach (SpellContext ctx in _active.Values) ctx.Spell.Cancel(ctx);
+        _active.Clear();
+        _owned.Clear();
+        _heldCastId = -1;
+        ClearPicks();
+        _preview?.QueueFree();
+        _preview = null;
+        _previewSpell = null;
+
+        var spells = new Godot.Collections.Array<SpellDefinition>();
+        foreach (string path in paths)
+            if (ResourceLoader.Exists(path) && GD.Load(path) is SpellDefinition spell) spells.Add(spell);
+        Spells = spells;
+        ActiveIndex = 0;
+
+        _charges = new float[Spells.Count];
+        for (int i = 0; i < Spells.Count; i++) _charges[i] = MaxChargesOf(i);
+    }
+
+    // Host: a player who just joined needs everyone else's loadout
+    public void SendLoadoutTo(long peer)
+    {
+        var paths = new string[Spells.Count];
+        for (int i = 0; i < Spells.Count; i++) paths[i] = Spells[i]?.ResourcePath ?? "";
+        RpcId(peer, MethodName.ReceiveLoadout, paths);
+    }
+
+    // ---------- Known spells (host; saved with the player) ----------
+
+    public string[] KnownSpells() => _known.ToArray();
+
+    public Dictionary<string, string[]> SocketsSnapshot()
+    {
+        var copy = new Dictionary<string, string[]>();
+        foreach (var (focus, spells) in _sockets) copy[focus] = (string[])spells.Clone();
+        return copy;
+    }
+
+    public void LoadSpells(string[] known, Dictionary<string, string[]> sockets)
+    {
+        if (!Multiplayer.IsServer()) return;
+        if (known != null && known.Length > 0)   // older saves have none: keep the starting set
+        {
+            _known.Clear();
+            foreach (string path in known)
+                if (ResourceLoader.Exists(path)) _known.Add(path);
+        }
+        _sockets.Clear();
+        if (sockets != null) foreach (var (focus, spells) in sockets) _sockets[focus] = (string[])spells.Clone();
     }
 
     // ---------- Spawned objects ----------
